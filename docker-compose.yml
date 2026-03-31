@@ -1,44 +1,61 @@
 services:
+  # Сервис основной реляционной базы данных (PostgreSQL)
   db:
+    # Используем официальный легковесный образ PostgreSQL 15 на базе Alpine Linux
     image: postgres:15-alpine
+    # Фиксированное имя контейнера для удобства обращения по сети Docker
     container_name: postgres_db
+    # Переменные окружения для начальной настройки базы данных
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: postgres
+    # Пробрасываем порт 5432 с хост-машины внутрь контейнера
     ports:
       - "5432:5432"
+    # Сохраняем данные базы в именованном томе, чтобы они не пропадали при удалении контейнера
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    # Проверка готовности базы (используется другими сервисами через depends_on)
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
       timeout: 5s
       retries: 5
 
+  # Сервис колоночной базы данных для аналитики (ClickHouse)
   clickhouse:
+    # Официальный образ сервера ClickHouse
     image: clickhouse/clickhouse-server:latest
     container_name: clickhouse_db
+    # Открываем порты: 8123 для HTTP и 9000 для TCP (родной протокол)
     ports:
       - "8123:8123"
       - "9000:9000"
+    # Настройка прав доступа и начальной БД
     environment:
       CLICKHOUSE_DB: default
       CLICKHOUSE_USER: default
       CLICKHOUSE_PASSWORD: "password"
       CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+    # Храним данные аналитики в локальной папке проекта для удобного доступа
     volumes:
       - ./docker/clickhouse/data:/var/lib/clickhouse
+    # Увеличиваем лимиты на количество открытых файлов (требование ClickHouse)
     ulimits:
       nofile:
         soft: 262144
         hard: 262144
 
+  # Основное FastAPI приложение
   app:
+    # Собираем образ из текущей директории (используя Dockerfile)
     build: .
     container_name: fastapi_app
+    # Пробрасываем стандартный HTTP-порт приложения
     ports:
       - "8000:8000"
+    # Настройки подключения к БД и параметры проекта
     environment:
       - DATABASE_URL=postgresql+psycopg://postgres:postgres@db:5432/postgres
       - CLICKHOUSE_HOST=clickhouse
@@ -48,14 +65,19 @@ services:
       - CLICKHOUSE_DATABASE=default
       - PROJECT_NAME=FastAPI Universal Pattern
       - DEBUG=True
+    # Ожидаем готовности зависимостей перед запуском приложения
     depends_on:
       db:
+        # Ждем, пока healthcheck сервиса 'db' вернет УСПЕХ
         condition: service_healthy
       clickhouse:
         condition: service_started
+    # Монтируем текущую папку в контейнер для мгновенного применения изменений кода (hot-reload)
     volumes:
       - .:/app
+    # Точка входа для запуска всех необходимых команд инициализации
     command: /app/docker-entrypoint.sh
 
+# Список именованных томов Docker для постоянного хранения данных
 volumes:
   postgres_data:

@@ -5,25 +5,33 @@ import sys
 import time
 from pathlib import Path
 
+# --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ДЛЯ ВЫВОДА В КОНСОЛЬ ---
+
 
 def print_step(msg):
+    """Выводит заголовок текущего этапа развертывания"""
     print(f"\n--- {msg} ---")
 
 
 def print_error(msg):
+    """Выводит сообщение об ошибке и завершает работу скрипта"""
     print(f"\n ОШИБКА: {msg}")
     sys.exit(1)
 
 
 def print_success(msg):
+    """Выводит сообщение об успешном завершении этапа"""
     print(f"\n УСПЕХ: {msg}")
 
 
 def run_command(command, shell=True, exit_on_error=True):
+    """Выполняет системную команду и обрабатывает ошибки ее завершения"""
     try:
+        # Запуск команды с проверкой кода возврата (check=True)
         result = subprocess.run(command, shell=shell, check=True, text=True)
         return result
     except subprocess.CalledProcessError:
+        # Если команда завершилась неудачно
         if exit_on_error:
             print_error(f"Команда '{command}' завершилась с ошибкой.")
         else:
@@ -32,8 +40,10 @@ def run_command(command, shell=True, exit_on_error=True):
 
 
 def validate_env():
+    """Проверяет и создает файлы переменных окружения (.env) при их отсутствии"""
     print_step("Настройка конфигурационных файлов (.env)")
 
+    # Шаблон содержимого файла .env с настройками по умолчанию
     default_env_content = """# App Config
 PROJECT_NAME="FastAPI Universal Pattern"
 ENVIRONMENT=development
@@ -55,19 +65,19 @@ ADMIN_PASSWORD=admin
 SECRET_KEY=yoursecretkeyhere
 """
 
-    # 1. Создаем .env.development если его нет
+    # 1. Создаем .env.development для локальной разработки, если файла еще нет
     dev_path = Path(".env.development")
     if not dev_path.exists():
         print("Создаю .env.development с настройками по умолчанию...")
         with open(dev_path, "w", encoding="utf-8") as f:
             f.write(default_env_content)
 
-    # 2. Создаем .env.production если его нет
+    # 2. Создаем .env.production для боевого окружения, если файла еще нет
     prod_path = Path(".env.production")
     if not prod_path.exists():
         print("Создаю .env.production с настройками по умолчанию...")
         with open(prod_path, "w", encoding="utf-8") as f:
-            # В проде по умолчанию DEBUG=False
+            # В продакшне отключаем DEBUG и меняем имя окружения
             prod_content = default_env_content.replace("DEBUG=True", "DEBUG=False")
             prod_content = prod_content.replace("ENVIRONMENT=development", "ENVIRONMENT=production")
             f.write(prod_content)
@@ -76,24 +86,29 @@ SECRET_KEY=yoursecretkeyhere
 
 
 def get_venv_python():
-    if os.name == "nt":
+    """Возвращает путь к интерпретатору Python внутри виртуального окружения (venv)"""
+    if os.name == "nt":  # Если ОС Windows
         return str(Path("venv/Scripts/python.exe"))
-    return str(Path("venv/bin/python"))
+    return str(Path("venv/bin/python"))  # Для Linux/macOS
 
 
 def get_venv_pip():
-    if os.name == "nt":
+    """Возвращает путь к пакетному менеджеру pip внутри виртуального окружения (venv)"""
+    if os.name == "nt":  # Если ОС Windows
         return str(Path("venv/Scripts/pip.exe"))
-    return str(Path("venv/bin/pip"))
+    return str(Path("venv/bin/pip"))  # Для Linux/macOS
 
 
 def wait_for_db(python_path, retries=10, delay=3):
+    """Ожидает, пока база данных PostgreSQL станет доступна для подключений"""
     print_step("Ожидание готовности базы данных PostgreSQL")
-    # Простейший скрипт для проверки подключения
+
+    # Короткий скрипт на Python для проверки подключения к БД через psycopg
     check_script = """
 import psycopg
 import sys
 try:
+    # Попытка подключения к БД с параметрами по умолчанию
     conn = psycopg.connect('postgresql://postgres:postgres@localhost:5432/postgres')
     conn.close()
     sys.exit(0)
@@ -101,6 +116,7 @@ except Exception as e:
     sys.exit(1)
 """
 
+    # Пытаемся подключиться i раз (по умолчанию 10 попыток с интервалом в 3 секунды)
     for i in range(retries):
         try:
             result = subprocess.run([python_path, "-c", check_script], capture_output=True)
@@ -117,12 +133,13 @@ except Exception as e:
 
 
 def main():
+    """Основная точка входа скрипта развертывания"""
     print_step("Запуск процесса развертывания (Senior Approach: Poetry inside venv)")
 
-    # 1. Валидация окружения
+    # 1. Проверка и создание файлов окружения (.env)
     validate_env()
 
-    # 2. Создание виртуального окружения
+    # 2. Создание виртуального окружения (venv), если его еще нет
     print_step("Создание виртуального окружения (venv)")
     if not Path("venv").exists():
         run_command(f"{sys.executable} -m venv venv")
@@ -130,37 +147,40 @@ def main():
     else:
         print("Venv уже существует.")
 
-    # 3. Установка Poetry и зависимостей локально
+    # 3. Установка инструментов и зависимостей проекта внутри venv
     print_step("Установка Poetry и зависимостей локально")
     python_path = os.path.abspath(get_venv_python())
 
+    # Обновляем сам pip для избежания проблем с установкой пакетов
     run_command(f'"{python_path}" -m pip install --upgrade pip')
-    # Устанавливаем poetry в сам venv, чтобы он не был глобальным
+
+    # Устанавливаем poetry непосредственно в созданное виртуальное окружение
     run_command(f'"{python_path}" -m pip install poetry')
 
-    # Конфигурируем poetry внутри venv, чтобы он не создавал свои окружения
+    # Настраиваем poetry внутри venv, чтобы он не плодил свои окружения в системе
     run_command(f'"{python_path}" -m poetry config virtualenvs.create false --local')
 
-    # Устанавливаем зависимости
+    # Синхронизируем зависимости двумя способами для максимальной надежности
     print("Синхронизация зависимостей...")
-    # Сначала пробуем pip install . так как он наиболее надежен в venv
+
+    # Способ А: Обычная установка проекта как пакета (через pip)
     print("Установка через pip install . ...")
     run_command(f'"{python_path}" -m pip install .')
 
-    # Затем пробуем poetry install для синхронизации poetry.lock если он есть
+    # Способ Б: Установка строго по файлу poetry.lock (если он есть)
     print("Синхронизация через poetry...")
-    run_command(f'"{python_path}" -m pip install poetry')
-    run_command(f'"{python_path}" -m poetry config virtualenvs.create false --local')
     run_command(f'"{python_path}" -m poetry install --no-root', exit_on_error=False)
 
-    # Проверка наличия ключевых модулей
+    # Дополнительная проверка установки критически важных библиотек
     print("Проверка наличия критических модулей...")
     modules_to_check = ["alembic", "pydantic_settings", "sqlalchemy", "psycopg", "pre_commit"]
     for mod in modules_to_check:
         try:
+            # Пытаемся импортировать модуль через Python из venv
             subprocess.run([python_path, "-c", f"import {mod}"], check=True, capture_output=True)
             print(f"  Модуль {mod} найден.")
         except subprocess.CalledProcessError:
+            # Если модуль не найден - пробуем установить его вручную
             print(f"  Модуль {mod} НЕ найден. Установка...")
             if mod == "psycopg":
                 run_command(f'"{python_path}" -m pip install "psycopg[binary]"')
@@ -171,13 +191,13 @@ def main():
 
     print_success("Все зависимости установлены локально в venv.")
 
-    # 4. Запуск инфраструктуры
+    # 4. Запуск баз данных через Docker Compose
     print_step("Запуск Docker контейнеров")
     if not shutil.which("docker-compose") and not shutil.which("docker"):
         print("Docker не найден. Пропускаю запуск контейнеров.")
     else:
         print("Попытка запустить базы данных через Docker...")
-        # Не выходим с ошибкой, если Docker не запущен, просто предупреждаем
+        # Пробуем запустить docker-compose (старый формат) или docker compose (новый формат)
         res = run_command("docker-compose up -d", exit_on_error=False)
         if res is None:
             res = run_command("docker compose up -d", exit_on_error=False)
@@ -186,20 +206,19 @@ def main():
             print(
                 "\n ВНИМАНИЕ: Не удалось запустить Docker. Убедитесь, что Docker Desktop запущен."
             )
-            print(" Если вы используете внешнюю БД, проигнорируйте это сообщение.")
 
-    # 5. Ожидание готовности БД перед миграциями
+    # 5. Ожидаем доступности БД, прежде чем пытаться менять её структуру
     wait_for_db(python_path)
 
-    # 6. Применение миграций
+    # 6. Применяем миграции Alembic для создания/обновления таблиц в PostgreSQL
     print_step("Применение миграций")
     run_command(f'"{python_path}" -m alembic upgrade head')
 
-    # 6. Настройка pre-commit
+    # 7. Настройка pre-commit хуков (автопроверки кода перед каждым сохранением изменений)
     print_step("Настройка pre-commit")
     run_command(f'"{python_path}" -m pre_commit install')
 
-    # 7. Генерация схемы архитектуры
+    # 8. Генерация статического файла со схемой архитектуры (System Map)
     print_step("Генерация данных для визуализации (System Map)")
     run_command(f'"{python_path}" scripts/generate_schema.py')
 
@@ -208,5 +227,6 @@ def main():
     print("  python run.py")
 
 
+# Проверка, что скрипт запущен напрямую, а не импортирован как модуль
 if __name__ == "__main__":
     main()

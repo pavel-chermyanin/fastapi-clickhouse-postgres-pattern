@@ -1,33 +1,48 @@
+# Конфигурация pre-commit: список инструментов, которые запускаются перед каждым коммитом Git
 repos:
+  # Репозиторий со стандартными хуками для проверки структуры файлов
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.5.0
     hooks:
+      # Проверяет синтаксис YAML-файлов
       - id: check-yaml
+      # Убеждается, что файлы заканчиваются пустой строкой
       - id: end-of-file-fixer
+      # Удаляет лишние пробелы в конце строк
       - id: trailing-whitespace
+      # Запрещает добавлять слишком большие файлы в репозиторий
       - id: check-added-large-files
 
+  # Репозиторий Black: строгий автоматический форматер кода Python
   - repo: https://github.com/psf/black
     rev: 24.1.1
     hooks:
       - id: black
 
+  # Репозиторий isort: автоматически сортирует импорты Python в алфавитном порядке и по группам
   - repo: https://github.com/pycqa/isort
     rev: 5.13.2
     hooks:
       - id: isort
 
+  # Репозиторий Ruff: современный, сверхбыстрый линтер и форматер для Python
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.3.0
     hooks:
       - id: ruff
+        # Автоматически исправляет найденные ошибки и завершается с ненулевым кодом при правках
         args: [--fix, --exit-non-zero-on-fix]
 
+  # Локальные хуки проекта, не привязанные к внешним репозиториям
   - repo: local
     hooks:
+      # Проверка актуальности миграций перед коммитом
       - id: check-migrations
         name: check-migrations
+        # Запуск PowerShell-скрипта, который сравнивает текущую версию БД с последней миграцией
         entry: powershell -ExecutionPolicy Bypass -File ./scripts/check_migrations.ps1
         language: system
+        # Запускать всегда, даже если изменения не затрагивают файлы миграций
         always_run: true
+        # Не передавать имена измененных файлов в качестве аргументов скрипту
         pass_filenames: false
