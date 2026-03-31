@@ -1,0 +1,13 @@
+venv
+.git
+.pytest_cache
+.mypy_cache
+.ruff_cache
+__pycache__
+docker/clickhouse/data
+*.pyc
+*.pyo
+*.pyd
+.db_schema.html
+poetry.lock
+.env

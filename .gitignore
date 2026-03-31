@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.venv/
+venv/
+env/
+
+# Environment
+.env
+.env.development
+.env.production
+!.env.example
+
+# Visualization data
+schema_data.json
+
+# Logs
+*.log
+
+# Docker data
+docker/clickhouse/data/
+docker/data/
+
+# IDE
+.idea/
+.vscode/
+.rules_data/
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Intelligence</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #6366f1;
+            --bg: #0f172a;
+            --card-bg: #1e293b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border: #334155;
+            --tooltip-bg: rgba(30, 41, 59, 0.98);
+        }
+
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg);
+            margin: 0;
+            padding: 20px;
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        header { margin-bottom: 30px; text-align: center; }
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #818cf8 0%, #c084fc 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin: 0;
+        }
+
+        .controls {
+            display: inline-flex;
+            background: var(--card-bg);
+            padding: 6px;
+            border-radius: 16px;
+            margin-bottom: 30px;
+            border: 1px solid var(--border);
+        }
+
+        .btn {
+            padding: 12px 28px;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            background: transparent;
+            color: var(--text-muted);
+            transition: all 0.3s;
+        }
+
+        .btn.active {
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+        }
+
+        .container {
+            background: var(--card-bg);
+            padding: 30px;
+            border-radius: 24px;
+            border: 1px solid var(--border);
+            width: 100%;
+            max-width: 1400px;
+            min-height: 700px;
+            position: relative;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        #diagram {
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.5s;
+        }
+
+        #diagram.ready { opacity: 1; }
+
+        /* Тултип */
+        #custom-tooltip {
+            position: fixed;
+            display: none;
+            background: var(--tooltip-bg);
+            backdrop-filter: blur(8px);
+            color: white;
+            padding: 16px;
+            border-radius: 12px;
+            font-size: 0.95rem;
+            z-index: 10000;
+            max-width: 320px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.7);
+            pointer-events: none;
+            border: 1px solid rgba(255,255,255,0.1);
+            line-height: 1.5;
+        }
+
+        #custom-tooltip strong {
+            display: block;
+            margin-bottom: 8px;
+            color: #818cf8;
+            font-size: 1.1rem;
+            border-bottom: 1px solid rgba(129, 140, 248, 0.3);
+            padding-bottom: 4px;
+        }
+
+        /* Интерактивность Mermaid v10 */
+        g.classGroup, g.node, g.entityBox, g.attributeBox, .edgePath, .edgeLabel {
+            cursor: help !important;
+        }
+
+        /* Стилизация для БД */
+        .er.entityBox { fill: #1e293b !important; stroke: #6366f1 !important; stroke-width: 2px !important; }
+        .er.attributeBox { fill: transparent !important; stroke: #334155 !important; }
+        .er.entityLabel { fill: #f8fafc !important; font-weight: bold !important; }
+        .er.attributeText { fill: #94a3b8 !important; }
+
+        .legend {
+            position: absolute;
+            bottom: 24px;
+            right: 24px;
+            background: rgba(15, 23, 42, 0.95);
+            padding: 24px;
+            border-radius: 20px;
+            border: 1px solid var(--border);
+            font-size: 1rem;
+            backdrop-filter: blur(12px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+            min-width: 280px;
+        }
+        .legend-title {
+            font-weight: 800;
+            color: #818cf8;
+            margin-bottom: 16px;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            font-size: 0.85rem;
+            border-bottom: 1px solid rgba(129, 140, 248, 0.2);
+            padding-bottom: 8px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 14px;
+            color: var(--text-main);
+        }
+        .legend-icon {
+            width: 80px;
+            height: 32px;
+            margin-right: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.05);
+            border-radius: 8px;
+            padding: 4px;
+        }
+        .legend-icon svg {
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>System Intelligence</h1>
+        <p style="color: var(--text-muted); margin-top: 8px;">Визуализация архитектуры и структуры данных</p>
+    </header>
+
+    <div class="controls">
+        <button id="btn-arch" class="btn active" onclick="showArchitecture()">Архитектура</button>
+        <button id="btn-db" class="btn" onclick="showDatabase()">База Данных</button>
+    </div>
+
+    <div class="container">
+        <div id="diagram" class="mermaid"></div>
+        <div id="custom-tooltip"></div>
+
+        <div class="legend" id="db-legend" style="display:none;">
+            <div class="legend-title">Легенда связей</div>
+            <div class="legend-item">
+                <div class="legend-icon">
+                    <svg viewBox="0 0 80 20">
+                        <!-- Left side: || (One and only one) -->
+                        <line x1="15" y1="4" x2="15" y2="16" stroke="#94a3b8" stroke-width="2.5" stroke-linecap="round"/>
+                        <line x1="21" y1="4" x2="21" y2="16" stroke="#94a3b8" stroke-width="2.5" stroke-linecap="round"/>
+                        <!-- Main connecting line -->
+                        <line x1="21" y1="10" x2="58" y2="10" stroke="#94a3b8" stroke-width="2.5"/>
+                        <!-- Right side: o{ (Zero or many) -->
+                        <circle cx="62" cy="10" r="4.5" fill="#1e293b" stroke="#94a3b8" stroke-width="2"/>
+                        <path d="M66.5,10 L78,4 M66.5,10 L78,16 M66.5,10 L78,10" fill="none" stroke="#94a3b8" stroke-width="2.5" stroke-linecap="round"/>
+                    </svg>
+                </div>
+                <span>1:N (Один ко многим)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-icon">
+                    <svg viewBox="0 0 80 20">
+                        <!-- Left side: }| (One or many) -->
+                        <path d="M2,4 L13.5,10 L2,16 M13.5,10 L2,10" fill="none" stroke="#c084fc" stroke-width="2.5" stroke-linecap="round"/>
+                        <line x1="18" y1="4" x2="18" y2="16" stroke="#c084fc" stroke-width="2.5" stroke-linecap="round"/>
+                        <!-- Main connecting line -->
+                        <line x1="18" y1="10" x2="62" y2="10" stroke="#c084fc" stroke-width="2.5"/>
+                        <!-- Right side: |{ (One or many) -->
+                        <line x1="62" y1="4" x2="62" y2="16" stroke="#c084fc" stroke-width="2.5" stroke-linecap="round"/>
+                        <path d="M66.5,10 L78,4 M66.5,10 L78,16 M66.5,10 L78,10" fill="none" stroke="#c084fc" stroke-width="2.5" stroke-linecap="round"/>
+                    </svg>
+                </div>
+                <span>M:N (Многие ко многим)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-icon">
+                    <div style="width:16px; height:16px; border-radius:4px; background:#6366f1; box-shadow: 0 0 8px rgba(99, 102, 241, 0.6);"></div>
+                </div>
+                <span>Ключи (PK / FK)</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let dbData = null;
+        const tooltip = document.getElementById('custom-tooltip');
+        let currentMode = 'arch';
+
+        const archTooltips = {
+            'User': '<strong>Пользователь</strong>Взаимодействует с системой через публичный API или защищенную панель управления.',
+            'App': '<strong>FastAPI Backend</strong>Основное ядро системы. Реализует бизнес-логику и маршрутизацию.',
+            'Admin': '<strong>SQLAdmin</strong>Административный интерфейс, встроенный прямо в FastAPI приложение.',
+            'Postgres': '<strong>PostgreSQL</strong>Отдельный контейнер (postgres_db). Основное реляционное хранилище.',
+            'ClickHouse': '<strong>ClickHouse</strong>Отдельный контейнер (clickhouse_db). Аналитическое хранилище данных.',
+            'L-User-App': '<strong>REST API</strong>Стандарт взаимодействия внешних клиентов с бэкендом.',
+            'L-User-Admin': '<strong>Dashboard</strong>Визуальный интерфейс для администраторов.',
+            'L-App-Postgres': '<strong>Async ORM</strong>Высокопроизводительный доступ к данным через SQLAlchemy 2.0.',
+            'L-App-ClickHouse': '<strong>OLAP Access</strong>Интеграция с ClickHouse для аналитических вычислений.',
+            'L-Admin-Postgres': '<strong>Metadata Access</strong>Автоматическое построение форм на основе моделей БД.'
+        };
+
+        const architectureSchema = `graph TB
+    User((Пользователь))
+
+    subgraph Container_App ["📦 Container: fastapi_app"]
+        direction TB
+        App[FastAPI Backend]
+        Admin[SQLAdmin Panel]
+        App <--> Admin
+    end
+
+    subgraph Container_Postgres ["📦 Container: postgres_db"]
+        Postgres[(PostgreSQL)]
+    end
+
+    subgraph Container_ClickHouse ["📦 Container: clickhouse_db"]
+        ClickHouse[(ClickHouse)]
+    end
+
+    User ==>|"/api/v1"| App
+    User ==>|"/admin"| Admin
+
+    App -.->|"AsyncSession"| Postgres
+    App -.->|"ClickHouse Connect"| ClickHouse
+    Admin -.->|"SQLAlchemy"| Postgres
+
+    style User fill:#0f172a,stroke:#818cf8,stroke-width:2px,color:#f8fafc
+    style App fill:#6366f1,stroke:#4f46e5,stroke-width:2px,color:#fff,rx:10,ry:10
+    style Admin fill:#10b981,stroke:#059669,stroke-width:2px,color:#fff,rx:10,ry:10
+    style Postgres fill:#f59e0b,stroke:#d97706,stroke-width:2px,color:#fff
+    style ClickHouse fill:#c084fc,stroke:#a855f7,stroke-width:2px,color:#fff
+
+    style Container_App fill:#1e293b,stroke:#334155,stroke-width:2px,rx:15,ry:15
+    style Container_Postgres fill:#1e293b,stroke:#334155,stroke-width:2px,rx:15,ry:15
+    style Container_ClickHouse fill:#1e293b,stroke:#334155,stroke-width:2px,rx:15,ry:15`;
+
+        mermaid.initialize({
+            startOnLoad: false,
+            theme: 'dark',
+            securityLevel: 'loose',
+            fontFamily: 'Inter, sans-serif'
+        });
+
+        async function loadDBData() {
+            if (dbData) return dbData;
+            try {
+                // Добавляем timestamp для обхода кэша
+                const response = await fetch('schema_data.json?t=' + Date.now());
+                dbData = await response.json();
+                return dbData;
+            } catch (e) { return null; }
+        }
+
+        function showTooltip(e, content) {
+            if (!content) return;
+            tooltip.innerHTML = content;
+            tooltip.style.display = 'block';
+            updateTooltipPosition(e);
+        }
+
+        function updateTooltipPosition(e) {
+            const padding = 20;
+            let x = e.clientX + padding;
+            let y = e.clientY + padding;
+
+            if (x + 320 > window.innerWidth) x = e.clientX - 340;
+            if (y + 200 > window.innerHeight) y = e.clientY - 220;
+
+            tooltip.style.left = x + 'px';
+            tooltip.style.top = y + 'px';
+        }
+
+        function hideTooltip() { tooltip.style.display = 'none'; }
+
+        // Универсальная функция поиска тултипа для SVG элементов
+        function handleGlobalMouseMove(e) {
+            if (tooltip.style.display === 'block') updateTooltipPosition(e);
+
+            const target = e.target;
+            if (!target) return;
+
+            let content = null;
+
+            if (currentMode === 'arch') {
+                const node = target.closest('g.node, g.edgePath, g.edgeLabel');
+                if (node) {
+                    const text = node.textContent.trim();
+                    if (text.includes('Пользователь')) content = archTooltips['User'];
+                    else if (text.includes('Backend')) content = archTooltips['App'];
+                    else if (text.includes('SQLAdmin')) content = archTooltips['Admin'];
+                    else if (text.includes('PostgreSQL')) content = archTooltips['Postgres'];
+                    else if (text.includes('ClickHouse')) content = archTooltips['ClickHouse'];
+                    else if (text.includes('/api/v1')) content = archTooltips['L-User-App'];
+                    else if (text.includes('/admin')) content = archTooltips['L-User-Admin'];
+                    else if (text.includes('AsyncSession')) content = archTooltips['L-App-Postgres'];
+                    else if (text.includes('ClickHouse Connect')) content = archTooltips['L-App-ClickHouse'];
+                    else if (text.includes('SQLAlchemy')) content = archTooltips['L-Admin-Postgres'];
+                }
+            } else if (currentMode === 'db' && dbData) {
+                // 1. Ищем родительскую группу таблицы
+                const entityGroup = target.closest('g[id^="entity-"]');
+                if (entityGroup) {
+                    // Извлекаем имя таблицы (первая часть ID после entity-)
+                    const entityId = entityGroup.id;
+                    const tableName = entityId.split('-')[1].toUpperCase();
+
+                    // 2. Определяем, на что именно навели
+                    const id = target.id || "";
+
+                    // Если навели на текст атрибута (поля)
+                    if (id.includes('-attr-')) {
+                        // Извлекаем номер атрибута (например, attr-4)
+                        const match = id.match(/attr-(\d+)/);
+                        if (match) {
+                            const attrNum = match[1];
+                            // Ищем элемент с именем этого атрибута в той же группе
+                            const nameElement = entityGroup.querySelector(`[id$="attr-${attrNum}-name"]`);
+                            if (nameElement) {
+                                const fieldName = nameElement.textContent.trim().toUpperCase();
+                                content = dbData.dbTooltips[`${tableName}-${fieldName}`];
+                            }
+                        }
+                    }
+                    // Если навели на прямоугольник (фон поля или таблицы)
+                    else if (target.tagName === 'rect') {
+                        if (target.classList.contains('attributeBoxOdd') || target.classList.contains('attributeBoxEven')) {
+                            // Для прямоугольников атрибутов нужно найти ближайший текст, чтобы понять индекс
+                            // В Mermaid rect идет перед соответствующим text. Ищем следующий элемент.
+                            let nextText = target.nextElementSibling;
+                            while (nextText && nextText.tagName !== 'text') {
+                                nextText = nextText.nextElementSibling;
+                            }
+                            if (nextText && nextText.id.includes('-attr-')) {
+                                const match = nextText.id.match(/attr-(\d+)/);
+                                if (match) {
+                                    const attrNum = match[1];
+                                    const nameElement = entityGroup.querySelector(`[id$="attr-${attrNum}-name"]`);
+                                    if (nameElement) {
+                                        const fieldName = nameElement.textContent.trim().toUpperCase();
+                                        content = dbData.dbTooltips[`${tableName}-${fieldName}`];
+                                    }
+                                }
+                            }
+                        } else if (target.classList.contains('entityBox')) {
+                            // Это заголовок таблицы (если не попали в атрибуты)
+                            content = dbData.dbTooltips[tableName];
+                        }
+                    }
+                    // Если навели на само название таблицы
+                    else if (target.classList.contains('entityLabel') && !id.includes('-attr-')) {
+                        content = dbData.dbTooltips[tableName];
+                    }
+                }
+            }
+
+            if (content) {
+                showTooltip(e, content);
+                if (target.tagName === 'rect' || target.tagName === 'text') {
+                    target.style.filter = 'brightness(1.4)';
+                    target.onmouseleave = () => target.style.filter = '';
+                }
+            } else {
+                hideTooltip();
+            }
+        }
+
+        async function renderDiagram(code, mode) {
+            currentMode = mode;
+            const diagramDiv = document.getElementById('diagram');
+            diagramDiv.classList.remove('ready');
+
+            try {
+                const { svg } = await mermaid.render('mermaid-svg', code);
+                diagramDiv.innerHTML = svg;
+                diagramDiv.classList.add('ready');
+                document.getElementById('db-legend').style.display = (mode === 'db' ? 'block' : 'none');
+            } catch (err) {
+                diagramDiv.innerHTML = `<p style="color:red">Error: ${err.message}</p>`;
+            }
+        }
+
+        function showArchitecture() {
+            document.getElementById('btn-arch').classList.add('active');
+            document.getElementById('btn-db').classList.remove('active');
+            renderDiagram(architectureSchema, 'arch');
+        }
+
+        async function showDatabase() {
+            document.getElementById('btn-db').classList.add('active');
+            document.getElementById('btn-arch').classList.remove('active');
+            const data = await loadDBData();
+            if (data) renderDiagram(data.mermaidSchema, 'db');
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            showArchitecture();
+            window.addEventListener('mousemove', handleGlobalMouseMove);
+        });
+    </script>
+</body>
+</html>

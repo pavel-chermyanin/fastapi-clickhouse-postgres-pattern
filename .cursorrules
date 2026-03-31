@@ -1,0 +1,23 @@
+# AI Assistance Rules (Modular FastAPI)
+
+When generating code or answering questions for this project, always adhere to the following rules:
+
+1. **Architecture (Feature-based/Modular)**:
+   - Everything related to a feature should be in `src/modules/<feature_name>/`.
+   - Each module should have: `models.py`, `schemas.py`, `repository.py`, `service.py`, `router.py`.
+   - Global logic stays in `src/core/` and `src/db/`.
+   - Routers from modules are included in `src/api/v1/api.py`.
+
+2. **Coding Standards**:
+   - **Language**: All comments and docstrings MUST be in Russian.
+   - Use `async/await` for all I/O.
+   - Mandatory type hints.
+   - Use `FastAPI` dependencies for DI.
+   - Use `BaseRepository` from `src/core/repository.py` for repositories.
+
+3. **Database**:
+   - Use `AsyncSession` for SQLAlchemy.
+   - Use `clickhouse-connect` for ClickHouse queries.
+   - Keep models and repositories separate for PostgreSQL and ClickHouse modules.
+
+4. **Context**: Always check the `.rules/` directory for detailed guidelines on modular architecture and standards.
