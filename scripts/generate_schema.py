@@ -1,4 +1,5 @@
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -8,6 +9,30 @@ sys.path.append(str(Path(__file__).parent.parent))
 from src.db.session import Base
 
 
+def get_doc_comments_from_file(file_path):
+    """
+    Извлекает комментарии вида # @doc: из файла.
+    Возвращает словарь {переменная/связь: комментарий}.
+    """
+    comments = {}
+    if not file_path.exists():
+        return comments
+
+    try:
+        content = file_path.read_text(encoding="utf-8")
+        # Ищем паттерн: # @doc: текст \n переменная = relationship(...)
+        pattern = r"#\s*@doc:\s*(.*?)\n\s*(\w+)\s*=\s*relationship"
+        matches = re.finditer(pattern, content, re.MULTILINE)
+        for match in matches:
+            comment_text = match.group(1).strip()
+            var_name = match.group(2).strip()
+            comments[var_name] = comment_text
+    except Exception as e:
+        print(f"Ошибка при парсинге {file_path}: {e}")
+
+    return comments
+
+
 def export_metadata_to_mermaid():
     """
     Экспортирует метаданные моделей SQLAlchemy в формат Mermaid.js с поддержкой комментариев.
@@ -15,6 +40,13 @@ def export_metadata_to_mermaid():
     """
     mermaid_lines = ["erDiagram"]
     tooltips = {}
+    edge_tooltips = {}
+
+    # Собираем комментарии из файлов моделей
+    all_doc_comments = {}
+    project_root = Path(__file__).parent.parent
+    for model_path in project_root.glob("src/modules/*/models.py"):
+        all_doc_comments.update(get_doc_comments_from_file(model_path))
 
     tables = Base.metadata.tables
     assoc_tables = {}
@@ -75,10 +107,18 @@ def export_metadata_to_mermaid():
                 target_entity = target_table_name.upper()
                 source_col = fk.parent.name
                 target_col = fk.column.name
+
+                label = f"{source_col}_to_{target_col}"
                 # One-to-Many
-                mermaid_lines.append(
-                    f'    {target_entity} ||--o{{ {entity_name} : "{source_col}_to_{target_col}"'
-                )
+                mermaid_lines.append(f'    {target_entity} ||--o{{ {entity_name} : "{label}"')
+
+                # Ищем комментарий для этой связи
+                # Обычно имя связи в модели совпадает с именем таблицы (reports -> filters)
+                relation_name = table_name.lower()
+                if relation_name in all_doc_comments:
+                    edge_tooltips[label] = (
+                        f"<strong>Связь: {label}</strong>{all_doc_comments[relation_name]}"
+                    )
 
     # Обрабатываем ассоциативные таблицы (M:N)
     for table_name, table in assoc_tables.items():
@@ -88,12 +128,18 @@ def export_metadata_to_mermaid():
             target_entities = sorted(list(set(fk.column.table.name.upper() for fk in fks)))
             if len(target_entities) >= 2:
                 t1, t2 = target_entities[0], target_entities[1]
+                label = table_name.lower()
                 # Many-to-Many link
-                mermaid_lines.append(f'    {t1} }}|--|{{ {t2} : "{table_name.lower()}"')
+                mermaid_lines.append(f'    {t1} }}|--|{{ {t2} : "{label}"')
+
+                # Добавляем комментарий из таблицы, если есть
+                table_comment = getattr(table, "comment", None) or ""
+                if table_comment:
+                    edge_tooltips[label] = f"<strong>Связь M:N: {label}</strong>{table_comment}"
 
     mermaid_code = "\n".join(mermaid_lines)
 
-    data = {"mermaidSchema": mermaid_code, "dbTooltips": tooltips}
+    data = {"mermaidSchema": mermaid_code, "dbTooltips": tooltips, "edgeTooltips": edge_tooltips}
 
     output_path = Path(__file__).parent.parent / "schema_data.json"
     with open(output_path, "w", encoding="utf-8") as f:

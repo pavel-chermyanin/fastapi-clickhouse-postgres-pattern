@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>System Intelligence</title>
     <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.1/dist/svg-pan-zoom.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -69,7 +70,7 @@
 
         .container {
             background: var(--card-bg);
-            padding: 30px;
+            padding: 20px;
             border-radius: 24px;
             border: 1px solid var(--border);
             width: 100%;
@@ -77,12 +78,20 @@
             min-height: 700px;
             position: relative;
             box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            overflow: hidden; /* Скрываем стандартный скролл, так как теперь есть зум */
+            cursor: grab;
+        }
+
+        .container:active {
+            cursor: grabbing;
         }
 
         #diagram {
             width: 100%;
+            height: 100%;
             display: flex;
             justify-content: center;
+            align-items: center;
             opacity: 0;
             transition: opacity 0.5s;
         }
@@ -117,7 +126,7 @@
         }
 
         /* Интерактивность Mermaid v10 */
-        g.classGroup, g.node, g.entityBox, g.attributeBox, .edgePath, .edgeLabel {
+        g.classGroup, g.node, g.entityBox, g.attributeBox, .edgePath, .edgeLabel, .relationshipLabel, .er.relationshipLabel {
             cursor: help !important;
         }
 
@@ -186,6 +195,7 @@
     </div>
 
     <div class="container">
+        <button id="reset-zoom" style="position:absolute; top:20px; right:20px; z-index:100; padding:8px 16px; border-radius:12px; background:var(--primary); color:white; border:none; cursor:pointer; font-weight:600; font-size:0.9rem; opacity:0.8; transition:opacity 0.3s;" onclick="if(panZoomInstance) panZoomInstance.reset();">Сбросить зум</button>
         <div id="diagram" class="mermaid"></div>
         <div id="custom-tooltip"></div>
 
@@ -232,6 +242,7 @@
 
     <script>
         let dbData = null;
+        let panZoomInstance = null;
         const tooltip = document.getElementById('custom-tooltip');
         let currentMode = 'arch';
 
@@ -249,23 +260,26 @@
         };
 
         const architectureSchema = `graph TB
-    User((Пользователь))
+    User(("&nbsp;&nbsp;&nbsp;Пользователь&nbsp;&nbsp;&nbsp;"))
 
     subgraph Container_App ["📦 Container: fastapi_app"]
         direction TB
-        App[FastAPI Backend]
-        Admin[SQLAdmin Panel]
+        App["&nbsp;&nbsp;&nbsp;FastAPI Backend&nbsp;&nbsp;&nbsp;"]
+        Admin["&nbsp;&nbsp;&nbsp;SQLAdmin Panel&nbsp;&nbsp;&nbsp;"]
         App <--> Admin
     end
 
     subgraph Container_Postgres ["📦 Container: postgres_db"]
-        Postgres[(PostgreSQL)]
+        direction TB
+        Postgres[("&nbsp;&nbsp;&nbsp;PostgreSQL&nbsp;&nbsp;&nbsp;")]
     end
 
     subgraph Container_ClickHouse ["📦 Container: clickhouse_db"]
-        ClickHouse[(ClickHouse)]
+        direction TB
+        ClickHouse[("&nbsp;&nbsp;&nbsp;ClickHouse&nbsp;&nbsp;&nbsp;")]
     end
 
+    %% Короткие связи для уменьшения отступа (gap)
     User ==>|"/api/v1"| App
     User ==>|"/admin"| Admin
 
@@ -274,20 +288,28 @@
     Admin -.->|"SQLAlchemy"| Postgres
 
     style User fill:#0f172a,stroke:#818cf8,stroke-width:2px,color:#f8fafc
-    style App fill:#6366f1,stroke:#4f46e5,stroke-width:2px,color:#fff,rx:10,ry:10
-    style Admin fill:#10b981,stroke:#059669,stroke-width:2px,color:#fff,rx:10,ry:10
-    style Postgres fill:#f59e0b,stroke:#d97706,stroke-width:2px,color:#fff
-    style ClickHouse fill:#c084fc,stroke:#a855f7,stroke-width:2px,color:#fff
+    style App fill:#6366f1,stroke:#4f46e5,stroke-width:2px,color:#fff,rx:12,ry:12
+    style Admin fill:#10b981,stroke:#059669,stroke-width:2px,color:#fff,rx:12,ry:12
+    style Postgres fill:#f59e0b,stroke:#d97706,stroke-width:2px,color:#fff,rx:12,ry:12
+    style ClickHouse fill:#c084fc,stroke:#a855f7,stroke-width:2px,color:#fff,rx:12,ry:12
 
-    style Container_App fill:#1e293b,stroke:#334155,stroke-width:2px,rx:15,ry:15
-    style Container_Postgres fill:#1e293b,stroke:#334155,stroke-width:2px,rx:15,ry:15
-    style Container_ClickHouse fill:#1e293b,stroke:#334155,stroke-width:2px,rx:15,ry:15`;
+    %% Стили для контейнеров (карточек)
+    style Container_App fill:#1e293b,stroke:#475569,stroke-width:3px,rx:20,ry:20
+    style Container_Postgres fill:#1e293b,stroke:#475569,stroke-width:3px,rx:20,ry:20
+    style Container_ClickHouse fill:#1e293b,stroke:#475569,stroke-width:3px,rx:20,ry:20`;
 
         mermaid.initialize({
             startOnLoad: false,
             theme: 'dark',
             securityLevel: 'loose',
-            fontFamily: 'Inter, sans-serif'
+            fontFamily: 'Inter, sans-serif',
+            flowchart: {
+                htmlLabels: true,
+                curve: 'basis',
+                nodeSpacing: 120, // Увеличиваем расстояние между узлами по горизонтали
+                rankSpacing: 150, // Увеличиваем расстояние между уровнями по вертикали
+                padding: 60       // Добавляем отступы для подграфов (контейнеров)
+            }
         });
 
         async function loadDBData() {
@@ -400,6 +422,16 @@
                         content = dbData.dbTooltips[tableName];
                     }
                 }
+
+                // 3. Поиск тултипа для связей (edges)
+                const edgeNode = target.closest('g.edgePath, g.edgeLabel, text.relationshipLabel, .er.relationshipLabel');
+                if (edgeNode) {
+                    // Извлекаем текст и очищаем от кавычек, если они есть
+                    const label = edgeNode.textContent.trim().replace(/^"(.*)"$/, '$1');
+                    if (dbData.edgeTooltips && dbData.edgeTooltips[label]) {
+                        content = dbData.edgeTooltips[label];
+                    }
+                }
             }
 
             if (content) {
@@ -418,9 +450,35 @@
             const diagramDiv = document.getElementById('diagram');
             diagramDiv.classList.remove('ready');
 
+            // Очистка предыдущего зум-инстанса
+            if (panZoomInstance) {
+                panZoomInstance.destroy();
+                panZoomInstance = null;
+            }
+
             try {
-                const { svg } = await mermaid.render('mermaid-svg', code);
+                // Генерируем уникальный ID для каждого рендера
+                const diagramId = 'mermaid-svg-' + Date.now();
+                const { svg } = await mermaid.render(diagramId, code);
                 diagramDiv.innerHTML = svg;
+
+                const svgElement = diagramDiv.querySelector('svg');
+                svgElement.style.width = '100%';
+                svgElement.style.height = '700px';
+                svgElement.style.maxWidth = 'none';
+                svgElement.style.backgroundColor = 'transparent';
+
+                // Инициализация панорамирования и зума
+                panZoomInstance = svgPanZoom(svgElement, {
+                    zoomEnabled: true,
+                    controlIconsEnabled: true,
+                    fit: true,
+                    center: true,
+                    minZoom: 0.1,
+                    maxZoom: 10,
+                    zoomScaleSensitivity: 0.3
+                });
+
                 diagramDiv.classList.add('ready');
                 document.getElementById('db-legend').style.display = (mode === 'db' ? 'block' : 'none');
             } catch (err) {

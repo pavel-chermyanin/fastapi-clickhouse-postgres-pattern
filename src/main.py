@@ -2,6 +2,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqladmin import Admin
 
+from src.admin.filters import FilterAdmin
+from src.admin.reports import ReportAdmin
 from src.admin.views import UserAdmin
 from src.api.v1.api import api_router
 from src.core.config import settings
@@ -31,6 +33,8 @@ admin = Admin(app, engine)
 
 # Регистрация представлений в админке
 admin.add_view(UserAdmin)
+admin.add_view(ReportAdmin)
+admin.add_view(FilterAdmin)
 
 
 @app.get("/", tags=["Root"])
