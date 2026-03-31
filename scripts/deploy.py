@@ -143,18 +143,31 @@ def main():
 
     # Устанавливаем зависимости
     print("Синхронизация зависимостей...")
-    # Пытаемся через poetry, если не выходит - через pip install .
-    res = run_command(f'"{python_path}" -m poetry install --no-root', exit_on_error=False)
-    if res is None:
-        print("Poetry install failed, falling back to pip install .")
-        run_command(f'"{python_path}" -m pip install .')
+    # Сначала пробуем pip install . так как он наиболее надежен в venv
+    print("Установка через pip install . ...")
+    run_command(f'"{python_path}" -m pip install .')
 
-    # Проверка наличия alembic и принудительная установка если пропал
-    try:
-        subprocess.run([python_path, "-m", "alembic", "--version"], check=True, capture_output=True)
-    except subprocess.CalledProcessError:
-        print("Alembic не найден в модулях. Принудительная установка...")
-        run_command(f'"{python_path}" -m pip install alembic sqlalchemy psycopg[binary]')
+    # Затем пробуем poetry install для синхронизации poetry.lock если он есть
+    print("Синхронизация через poetry...")
+    run_command(f'"{python_path}" -m pip install poetry')
+    run_command(f'"{python_path}" -m poetry config virtualenvs.create false --local')
+    run_command(f'"{python_path}" -m poetry install --no-root', exit_on_error=False)
+
+    # Проверка наличия ключевых модулей
+    print("Проверка наличия критических модулей...")
+    modules_to_check = ["alembic", "pydantic_settings", "sqlalchemy", "psycopg", "pre_commit"]
+    for mod in modules_to_check:
+        try:
+            subprocess.run([python_path, "-c", f"import {mod}"], check=True, capture_output=True)
+            print(f"  Модуль {mod} найден.")
+        except subprocess.CalledProcessError:
+            print(f"  Модуль {mod} НЕ найден. Установка...")
+            if mod == "psycopg":
+                run_command(f'"{python_path}" -m pip install "psycopg[binary]"')
+            elif mod == "pre_commit":
+                run_command(f'"{python_path}" -m pip install pre-commit')
+            else:
+                run_command(f'"{python_path}" -m pip install {mod.replace("_", "-")}')
 
     print_success("Все зависимости установлены локально в venv.")
 
