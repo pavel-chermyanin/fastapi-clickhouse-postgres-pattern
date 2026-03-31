@@ -218,13 +218,17 @@ def main():
     print_step("Настройка pre-commit")
     run_command(f'"{python_path}" -m pre_commit install')
 
-    # 8. Генерация статического файла со схемой архитектуры (System Map)
-    print_step("Генерация данных для визуализации (System Map)")
+    # 8. Генерация данных и запуск визуализации (System Map)
+    print_step("Генерация и запуск визуализации (System Map)")
     run_command(f'"{python_path}" scripts/generate_schema.py')
 
     print_success("Проект успешно развернут!")
     print("\nДля запуска приложения используйте:")
     print("  python run.py")
+
+    print("\n--- Запуск сервера визуализации ---")
+    # Запуск сервера просмотра схемы (блокирующая операция)
+    run_command(f'"{python_path}" scripts/serve_schema.py', exit_on_error=False)
 
 
 # Проверка, что скрипт запущен напрямую, а не импортирован как модуль
