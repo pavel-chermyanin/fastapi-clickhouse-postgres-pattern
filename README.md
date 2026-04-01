@@ -6,7 +6,7 @@
 
 ## 🚀 Быстрый старт (Запуск через Docker)
 
-Проект полностью готов к запуску в изолированном окружении Docker. 
+Проект полностью готов к запуску в изолированном окружении Docker.
 
 ### 1. Развертывание (Первый запуск)
 Эта команда автоматически создаст все необходимые конфигурационные файлы (включая `.env.development` и `.env.production`) и запустит проект вместе с миграциями баз данных.
@@ -24,7 +24,7 @@ python3 scripts/deploy.py
 **Что происходит при запуске `deploy.py`:**
 1. **Создаются файлы окружения:** `.env.development`, `.env.production` и базовый `.env`.
 2. **Запускается Docker Compose:** Собирается образ, устанавливаются зависимости через `uv`.
-3. **Применяются миграции:** Скрипт `docker-entrypoint.sh` внутри контейнера дожидается готовности БД и автоматически накатывает `alembic upgrade head`.
+3. **Применяются миграции и инициализация БД:** Скрипт `docker-entrypoint.sh` внутри контейнера дожидается готовности баз данных, автоматически накатывает миграции PostgreSQL (`alembic upgrade head`) и генерирует **таблицу с моковыми данными в ClickHouse** (`scripts/init_clickhouse.py`).
 4. Запускается сервер FastAPI.
 
 *Для остановки всех сервисов:*
@@ -40,14 +40,15 @@ docker compose down
 2.  **.env.production**: Для серверного окружения (требует ручной правки паролей).
 
 ### Запуск с выбором окружения
-Вы можете явно указать окружение при запуске через `run.py`:
+Вы можете явно указать окружение при запуске через `run.py`.
+Используйте `uv run` для автоматического определения нужной версии Python:
 
 ```bash
 # По умолчанию используется .env.development
-python run.py --env development
+uv run python run.py --env development
 
 # Запуск в режиме продакшена (.env.production)
-python run.py --env production
+uv run python run.py --env production
 ```
 
 *Если вы не указываете `--env`, приложение по умолчанию запустится в режиме `development`.*
@@ -81,20 +82,20 @@ docker-compose up -d --build
 
 ## 🛠️ Команды по отдельности
 
-Все команды ниже кроссплатформенны (используйте `python` из корня проекта):
+Так как мы используем менеджер зависимостей `uv`, все локальные команды рекомендуется запускать через `uv run`. Это автоматически решает проблему с алиасами (python vs python3) на Windows и Mac OS.
 
 ### Запуск API (ручной)
 ```bash
-python run.py
+uv run python run.py
 ```
 
 ### Визуализация (System Map)
 ```bash
 # Генерация данных (после изменения моделей)
-python scripts/generate_schema.py
+uv run python scripts/generate_schema.py
 
 # Запуск сервера просмотра
-python scripts/serve_schema.py
+uv run python scripts/serve_schema.py
 ```
 
 ### Работа с зависимостями (через uv)
@@ -115,12 +116,13 @@ uv run pytest
 ```
 
 ### Базы данных (Миграции)
+Если вы запускаете миграции локально:
 ```bash
 # Применить миграции
-python -m alembic upgrade head
+uv run alembic upgrade head
 
 # Создать новую миграцию (авто)
-python -m alembic revision --autogenerate -m "Add description"
+uv run alembic revision --autogenerate -m "Add description"
 ```
 
 ---
@@ -132,6 +134,7 @@ python -m alembic revision --autogenerate -m "Add description"
 | **API Backend** | [http://localhost:8000](http://localhost:8000) | Основной адрес API сервера |
 | **Swagger UI** | [http://localhost:8000/docs](http://localhost:8000/docs) | Документация для фронтенда |
 | **Admin Panel** | [http://localhost:8000/admin](http://localhost:8000/admin) | Управление данными через SQLAdmin |
+| **ClickHouse UI** | [http://localhost:8123/play](http://localhost:8123/play) | Встроенный веб-интерфейс (Play) для выполнения SQL-запросов к ClickHouse |
 | **System Map** | [http://localhost:8080/db_schema.html](http://localhost:8080/db_schema.html) | Карта архитектуры и схема БД |
 
 
@@ -158,6 +161,17 @@ black....................................................................Failed
 - files were modified by this hook
 reformatted scripts\generate_schema.py
 ```
+
+### Почему хуки возвращают Failed?
+Поведение, когда вы видите `Failed` — это абсолютно нормальная и **задуманная механика работы `pre-commit`**.
+Слово `Failed` в логах не означает, что код сломан. Это означает: *"Я нашел несоответствия стандартам, я их автоматически исправил, но я прерываю коммит, чтобы ты мог посмотреть, что именно я изменил"*.
+
+**Как это работает:**
+1. Вы пишете код и делаете `git commit`.
+2. `pre-commit` перехватывает коммит и запускает хуки (`black`, `isort`, `ruff`).
+3. Если код не идеален (например, лишний пробел или неправильный порядок импортов), хуки **автоматически правят файлы** на диске.
+4. Поскольку файлы изменились, хуки возвращают статус `Failed` (ошибка проверки) и **прерывают коммит**. Это сделано специально для безопасности, чтобы Git не закоммитил изменения, которые вы не видели.
+5. Вам нужно просто сделать `git add .` (чтобы добавить автоисправления в индекс) и заново запустить `git commit`.
 
 **Что делать, если коммит прерван?**
 Так как хуки уже внесли правки в файлы, вам достаточно просто добавить эти изменения в индекс и повторить коммит:

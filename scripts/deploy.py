@@ -1,13 +1,15 @@
-import os
 import subprocess
 import sys
 from pathlib import Path
 
+
 def print_step(msg):
     print(f"\n--- {msg} ---")
 
+
 def print_success(msg):
     print(f"\n УСПЕХ: {msg}")
+
 
 def validate_env():
     """Проверяет и создает файлы переменных окружения (.env) при их отсутствии"""
@@ -49,7 +51,7 @@ SECRET_KEY=yoursecretkeyhere
             prod_content = default_env_content.replace("DEBUG=True", "DEBUG=False")
             prod_content = prod_content.replace("ENVIRONMENT=development", "ENVIRONMENT=production")
             f.write(prod_content)
-            
+
     # 3. Создаем базовый .env (симлинк или копия .env.development для Docker Compose)
     base_env = Path(".env")
     if not base_env.exists():
@@ -59,12 +61,15 @@ SECRET_KEY=yoursecretkeyhere
 
     print_success("Конфигурационные файлы (.env, .env.development, .env.production) готовы.")
 
+
 def run_docker():
     """Запускает Docker Compose"""
     print_step("Запуск инфраструктуры через Docker Compose")
     print("Собираем и запускаем контейнеры (БД + Приложение)...")
-    print("Внимание: Миграции будут применены автоматически при старте контейнера приложения (через docker-entrypoint.sh)")
-    
+    print(
+        "Внимание: Миграции будут применены автоматически при старте контейнера приложения (через docker-entrypoint.sh)"
+    )
+
     try:
         # Пробуем docker compose (новый формат)
         subprocess.run(["docker", "compose", "up", "-d", "--build"], check=True)
@@ -76,19 +81,51 @@ def run_docker():
             print(f"\n ОШИБКА при запуске Docker: {e}")
             print("Убедитесь, что Docker Desktop запущен.")
             sys.exit(1)
-            
+
     print_success("Контейнеры успешно запущены в фоновом режиме.")
     print("\nПриложение будет доступно по адресу: http://localhost:8000")
     print("Swagger UI: http://localhost:8000/docs")
 
+
+def setup_precommit():
+    """Настраивает pre-commit хуки (требуется установленный pip или uv)"""
+    print_step("Настройка pre-commit хуков (проверки перед коммитом)")
+    try:
+        # Пробуем использовать uv (рекомендуемый способ)
+        print("Попытка установки через uv...")
+        subprocess.run(["uv", "pip", "install", "pre-commit"], check=True, capture_output=True)
+    except Exception:
+        try:
+            # Откат к pip, если uv не найден
+            print("uv не найден. Установка через pip...")
+            subprocess.run(
+                [sys.executable, "-m", "pip", "install", "pre-commit"],
+                check=True,
+                capture_output=True,
+            )
+        except Exception as e:
+            print(f" ПРЕДУПРЕЖДЕНИЕ: Не удалось установить pre-commit: {e}")
+            return
+
+    try:
+        subprocess.run(["pre-commit", "install"], check=True)
+        print_success("Pre-commit хуки успешно установлены.")
+    except Exception as e:
+        print(f" ПРЕДУПРЕЖДЕНИЕ: Не удалось активировать pre-commit: {e}")
+
+
 def main():
     print_step("Запуск процесса развертывания (Docker-based)")
-    
+
     # 1. Создание .env файлов
     validate_env()
-    
-    # 2. Запуск Docker Compose (миграции внутри)
+
+    # 2. Настройка Git хуков
+    setup_precommit()
+
+    # 3. Запуск Docker Compose (миграции внутри)
     run_docker()
+
 
 if __name__ == "__main__":
     main()
