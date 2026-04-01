@@ -38,9 +38,9 @@ services:
       CLICKHOUSE_USER: default
       CLICKHOUSE_PASSWORD: "password"
       CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
-    # Храним данные аналитики в локальной папке проекта для удобного доступа
+    # Храним данные аналитики в именованном томе Docker для стабильности на всех ОС
     volumes:
-      - ./docker/clickhouse/data:/var/lib/clickhouse
+      - clickhouse_data:/var/lib/clickhouse
     # Увеличиваем лимиты на количество открытых файлов (требование ClickHouse)
     ulimits:
       nofile:
@@ -56,8 +56,11 @@ services:
     ports:
       - "8000:8000"
     # Настройки подключения к БД и параметры проекта
+    # По умолчанию используем .env.development, но можно переопределить через переменную окружения
     env_file:
-      - .env
+      - .env.development
+    # Если нужно использовать другой файл, можно добавить его вторым (он перекроет первый)
+    # или запускать через: docker compose --env-file .env.production up
     # Ожидаем готовности зависимостей перед запуском приложения
     depends_on:
       db:
@@ -74,3 +77,4 @@ services:
 # Список именованных томов Docker для постоянного хранения данных
 volumes:
   postgres_data:
+  clickhouse_data:

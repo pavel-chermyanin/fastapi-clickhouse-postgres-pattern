@@ -52,39 +52,52 @@ SECRET_KEY=yoursecretkeyhere
             prod_content = prod_content.replace("ENVIRONMENT=development", "ENVIRONMENT=production")
             f.write(prod_content)
 
-    # 3. Создаем базовый .env (симлинк или копия .env.development для Docker Compose)
-    base_env = Path(".env")
-    if not base_env.exists():
-        print("Создаю базовый .env (копия .env.development) для Docker...")
-        with open(base_env, "w", encoding="utf-8") as f:
-            f.write(default_env_content)
-
-    print_success("Конфигурационные файлы (.env, .env.development, .env.production) готовы.")
+    # 3. Базовый .env больше не создаем, так как docker-compose будет использовать .env.development/.env.production напрямую
+    print_success("Конфигурационные файлы (.env.development, .env.production) готовы.")
 
 
 def run_docker():
     """Запускает Docker Compose"""
     print_step("Запуск инфраструктуры через Docker Compose")
+
+    # Определяем какой файл окружения использовать (по умолчанию development)
+    env_file = ".env.development"
+    print(f"Используем файл окружения: {env_file}")
+
     print("Собираем и запускаем контейнеры (БД + Приложение)...")
     print(
-        "Внимание: Миграции будут применены автоматически при старте контейнера приложения (через docker-entrypoint.sh)"
+        "Внимание: Первый запуск может занять несколько минут, пока Docker установит все зависимости (uv pip install)."
+    )
+    print(
+        "Миграции и тестовые данные будут применены автоматически при старте контейнера приложения."
     )
 
     try:
-        # Пробуем docker compose (новый формат)
-        subprocess.run(["docker", "compose", "up", "-d", "--build"], check=True)
+        # Пробуем docker compose (новый формат) с указанием --env-file
+        subprocess.run(
+            ["docker", "compose", "--env-file", env_file, "up", "-d", "--build"], check=True
+        )
     except subprocess.CalledProcessError:
         try:
             # Пробуем docker-compose (старый формат)
-            subprocess.run(["docker-compose", "up", "-d", "--build"], check=True)
+            subprocess.run(
+                ["docker-compose", "--env-file", env_file, "up", "-d", "--build"], check=True
+            )
         except Exception as e:
             print(f"\n ОШИБКА при запуске Docker: {e}")
             print("Убедитесь, что Docker Desktop запущен.")
             sys.exit(1)
 
     print_success("Контейнеры успешно запущены в фоновом режиме.")
-    print("\nПриложение будет доступно по адресу: http://localhost:8000")
-    print("Swagger UI: http://localhost:8000/docs")
+    print("-" * 50)
+    print(" ССЫЛКИ НА СЕРВИСЫ:")
+    print("  🚀 FastAPI App:     http://localhost:8000")
+    print("  📝 Swagger UI:      http://localhost:8000/docs")
+    print("  🛠️ SQLAdmin:       http://localhost:8000/admin")
+    print("  📊 ClickHouse UI:   http://localhost:8123/play")
+    print("  🗺️ System Map:      http://localhost:8080/db_schema.html")
+    print("-" * 50)
+    print("\nДождитесь полной готовности сервисов (проверить: docker logs -f fastapi_app)")
 
 
 def setup_precommit():

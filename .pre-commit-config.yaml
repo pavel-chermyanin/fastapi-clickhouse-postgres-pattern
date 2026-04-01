@@ -39,9 +39,9 @@ repos:
       # Проверка актуальности миграций перед коммитом
       - id: check-migrations
         name: check-migrations
-        # Запуск Python-скрипта, который сравнивает текущую версию БД с последней миграцией
-        entry: uv run python ./scripts/check_migrations.py
-        language: system
+        # Используем language: python для кроссплатформенности (сам найдет python3 на Mac или python на Win)
+        entry: python ./scripts/check_migrations.py
+        language: python
         # Запускать всегда, даже если изменения не затрагивают файлы миграций
         always_run: true
         # Не передавать имена измененных файлов в качестве аргументов скрипту
