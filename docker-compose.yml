@@ -56,15 +56,8 @@ services:
     ports:
       - "8000:8000"
     # Настройки подключения к БД и параметры проекта
-    environment:
-      - DATABASE_URL=postgresql+psycopg://postgres:postgres@db:5432/postgres
-      - CLICKHOUSE_HOST=clickhouse
-      - CLICKHOUSE_PORT=8123
-      - CLICKHOUSE_USER=default
-      - CLICKHOUSE_PASSWORD=password
-      - CLICKHOUSE_DATABASE=default
-      - PROJECT_NAME=FastAPI Universal Pattern
-      - DEBUG=True
+    env_file:
+      - .env
     # Ожидаем готовности зависимостей перед запуском приложения
     depends_on:
       db:
@@ -75,7 +68,7 @@ services:
     # Монтируем текущую папку в контейнер для мгновенного применения изменений кода (hot-reload)
     volumes:
       - .:/app
-    # Точка входа для запуска всех необходимых команд инициализации (используем bash для обхода проблем с правами файлов при монтировании томов)
+    # Точка входа для запуска всех необходимых команд инициализации
     command: bash /app/docker-entrypoint.sh
 
 # Список именованных томов Docker для постоянного хранения данных

@@ -24,22 +24,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     # Очищаем кэш apt-get для уменьшения финального размера Docker-образа
     && rm -rf /var/lib/apt/lists/*
 
-# Устанавливаем менеджер зависимостей Poetry без использования кэша pip
-RUN pip install --no-cache-dir poetry
+# Устанавливаем uv - сверхбыстрый менеджер пакетов для Python
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
-# Копируем файлы описания зависимостей отдельно для эффективного кэширования слоев Docker
-COPY pyproject.toml poetry.lock* /app/
-
-# Настраиваем Poetry: не создавать виртуальное окружение внутри контейнера (используем системный Python)
-RUN poetry config virtualenvs.create false \
-    # Устанавливаем зависимости без интерактивных запросов и без самого проекта как пакета
-    && poetry install --no-interaction --no-ansi --no-root
+# Копируем файл конфигурации зависимостей
+COPY pyproject.toml /app/
 
 # Копируем весь остальной код приложения в рабочую директорию контейнера
 COPY . /app/
 
-# Устанавливаем текущий проект в режиме редактирования (-e), чтобы все модули были доступны
-RUN pip install -e .
+# Устанавливаем все зависимости и сам проект в системное окружение
+RUN uv pip install --system -e .
 
 # Копируем скрипт входа (entrypoint), который будет выполняться при запуске контейнера
 COPY docker-entrypoint.sh /app/docker-entrypoint.sh
