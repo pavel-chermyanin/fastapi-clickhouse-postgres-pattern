@@ -44,5 +44,5 @@ RUN dos2unix /app/docker-entrypoint.sh && chmod +x /app/docker-entrypoint.sh
 # Сообщаем Docker, что контейнер будет слушать порт 8000
 EXPOSE 8000
 
-# Команда по умолчанию, которая запускает наш скрипт инициализации при старте контейнера
-CMD ["/app/docker-entrypoint.sh"]
+# Команда по умолчанию, которая запускает наш скрипт инициализации при старте контейнера (используем bash)
+CMD ["bash", "/app/docker-entrypoint.sh"]

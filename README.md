@@ -13,7 +13,11 @@
 
 **Для Windows / Linux:**
 ```bash
-python scripts/deploy.py
+# Для Linux/macOS
+bash deploy.sh
+
+# Для Windows
+deploy.bat
 ```
 
 **Для Mac OS:**
@@ -30,6 +34,7 @@ python3 scripts/deploy.py
 *Для остановки всех сервисов:*
 ```bash
 docker compose down
+
 ```
 
 ## ⚙️ Управление окружениями (.env)
@@ -49,7 +54,10 @@ uv run python run.py --env development
 
 # Запуск в режиме продакшена (.env.production)
 uv run python run.py --env production
+
 ```
+
+*(На Windows используйте `run.bat` вместо `bash run.sh`)*
 
 *Если вы не указываете `--env`, приложение по умолчанию запустится в режиме `development`.*
 
