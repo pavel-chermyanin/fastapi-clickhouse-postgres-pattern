@@ -20,11 +20,21 @@ def serve_schema():
         )
         return
 
-    with socketserver.TCPServer(("", PORT), Handler) as httpd:
+    # Разрешаем повторное использование адреса (полезно при перезапусках в Docker)
+    socketserver.TCPServer.allow_reuse_address = True
+
+    with socketserver.TCPServer(("0.0.0.0", PORT), Handler) as httpd:
         url = f"http://localhost:{PORT}/db_schema.html"
-        print(f"Сервер запущен на {url}")
+        print(f"Сервер визуализации БД запущен на {url}")
         print("Нажмите Ctrl+C для остановки.")
-        webbrowser.open(url)
+
+        # Пытаемся открыть браузер, если мы не в Docker
+        if not os.path.exists("/.dockerenv"):
+            try:
+                webbrowser.open(url)
+            except Exception:
+                pass
+
         try:
             httpd.serve_forever()
         except KeyboardInterrupt:

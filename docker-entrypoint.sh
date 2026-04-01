@@ -13,7 +13,14 @@ alembic upgrade head
 echo "--- Initializing ClickHouse mock data ---"
 uv run python scripts/init_clickhouse.py
 
-# --- Этап 3: Запуск основного FastAPI приложения через Uvicorn ---
+# --- Этап 3: Генерация и запуск сервера визуализации БД ---
+echo "--- Generating DB schema and starting visualization server ---"
+# Генерируем схему из текущих моделей
+uv run python scripts/generate_schema.py
+# Запускаем сервер визуализации в фоновом режиме (порт 8080)
+uv run python scripts/serve_schema.py &
+
+# --- Этап 4: Запуск основного FastAPI приложения через Uvicorn ---
 # --host 0.0.0.0 позволяет принимать запросы извне контейнера
 # --port 8000 указывает порт для прослушивания
 # --reload и --reload-dir src включают автоматическую перезагрузку сервера при изменении кода
