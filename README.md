@@ -12,7 +12,11 @@
 
 Эта команда автоматически выполнит все шаги по настройке проекта:
 ```bash
-python scripts/deploy.py
+# Для Linux/macOS
+bash deploy.sh
+
+# Для Windows
+deploy.bat
 ```
 
 **Что происходит при запуске `deploy.py` (по шагам):**
@@ -35,7 +39,11 @@ python scripts/deploy.py
 ### 2. Запуск проекта
 Запускает API Backend и сервер визуализации System Map (с предварительной валидацией):
 ```bash
-python run.py
+# Для Linux/macOS
+bash run.sh
+
+# Для Windows
+run.bat
 ```
 *   **Swagger UI**: [http://localhost:8000/docs](http://localhost:8000/docs)
 *   **Admin Panel**: [http://localhost:8000/admin](http://localhost:8000/admin)
@@ -49,15 +57,19 @@ python run.py
 2.  **.env.production**: Для серверного окружения (требует ручной правки паролей).
 
 ### Запуск с выбором окружения
-Вы можете явно указать окружение при запуске через `run.py`:
+Вы можете явно указать окружение при запуске через `run.sh` / `run.bat`:
 
 ```bash
 # По умолчанию используется .env.development
-python run.py --env development
+# Для Linux/macOS
+bash run.sh --env development
 
 # Запуск в режиме продакшена (.env.production)
-python run.py --env production
+# Для Linux/macOS
+bash run.sh --env production
 ```
+
+*(На Windows используйте `run.bat` вместо `bash run.sh`)*
 
 *Если вы не указываете `--env`, приложение по умолчанию запустится в режиме `development`.*
 

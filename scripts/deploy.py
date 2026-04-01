@@ -224,7 +224,10 @@ def main():
 
     print_success("Проект успешно развернут!")
     print("\nДля запуска приложения используйте:")
-    print("  python run.py")
+    if os.name == "nt":
+        print("  run.bat")
+    else:
+        print("  bash run.sh")
 
     print("\n--- Запуск сервера визуализации ---")
     # Запуск сервера просмотра схемы (блокирующая операция)
