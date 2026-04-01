@@ -11,9 +11,14 @@
 ### 1. Развертывание (Первый запуск)
 Эта команда автоматически создаст все необходимые конфигурационные файлы (включая `.env.development` и `.env.production`) и запустит проект вместе с миграциями баз данных.
 
-**Для всех ОС (Windows / macOS / Linux):**
+**Для Windows:**
 ```bash
 python scripts/deploy.py
+```
+
+**Для macOS / Linux:**
+```bash
+python3 scripts/deploy.py
 ```
 
 **Что происходит при запуске `deploy.py`:**
