@@ -7,9 +7,9 @@ services:
     container_name: postgres_db
     # Переменные окружения для начальной настройки базы данных
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: postgres
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-postgres}
     # Пробрасываем порт 5432 с хост-машины внутрь контейнера
     ports:
       - "5432:5432"
@@ -18,34 +18,10 @@ services:
       - postgres_data:/var/lib/postgresql/data
     # Проверка готовности базы (используется другими сервисами через depends_on)
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
       interval: 5s
       timeout: 5s
       retries: 5
-
-  # Сервис колоночной базы данных для аналитики (ClickHouse)
-  clickhouse:
-    # Официальный образ сервера ClickHouse
-    image: clickhouse/clickhouse-server:latest
-    container_name: clickhouse_db
-    # Открываем порты: 8123 для HTTP и 9000 для TCP (родной протокол)
-    ports:
-      - "8123:8123"
-      - "9000:9000"
-    # Настройка прав доступа и начальной БД
-    environment:
-      CLICKHOUSE_DB: default
-      CLICKHOUSE_USER: default
-      CLICKHOUSE_PASSWORD: "password"
-      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
-    # Храним данные аналитики в именованном томе Docker для стабильности на всех ОС
-    volumes:
-      - clickhouse_data:/var/lib/clickhouse
-    # Увеличиваем лимиты на количество открытых файлов (требование ClickHouse)
-    ulimits:
-      nofile:
-        soft: 262144
-        hard: 262144
 
   # Основное FastAPI приложение
   app:
@@ -62,20 +38,16 @@ services:
       - .env.development
     # Если нужно использовать другой файл, можно добавить его вторым (он перекроет первый)
     # или запускать через: docker compose --env-file .env.production up
-    # Ожидаем готовности зависимостей перед запуском приложения
+    # Ожидаем готовности локальных зависимостей перед запуском приложения
     depends_on:
       db:
         # Ждем, пока healthcheck сервиса 'db' вернет УСПЕХ
         condition: service_healthy
-      clickhouse:
-        condition: service_started
     # Монтируем текущую папку в контейнер для мгновенного применения изменений кода (hot-reload)
     volumes:
       - .:/app
-    # Точка входа для запуска всех необходимых команд инициализации
+    # Команда для запуска всех необходимых команд инициализации через скрипт
     command: bash /app/docker-entrypoint.sh
 
-# Список именованных томов Docker для постоянного хранения данных
 volumes:
   postgres_data:
-  clickhouse_data:

@@ -2,7 +2,7 @@ from sqlalchemy import Boolean, Column, DateTime, Integer, String
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
-from src.db.session import Base
+from src.db.postgres.session import PostgresBase as Base
 
 
 class User(Base):
