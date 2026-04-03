@@ -1,7 +1,7 @@
 from sqlalchemy import JSON, Column, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 
-from src.db.session import Base
+from src.db.postgres.session import PostgresBase as Base
 
 
 class Filter(Base):

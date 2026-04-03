@@ -2,10 +2,10 @@ from typing import Generic, List, Optional, Type, TypeVar
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy.orm import declarative_base
 
-from src.db.session import Base
-
-ModelType = TypeVar("ModelType", bound=Base)
+SQLAlchemyBase = TypeVar("SQLAlchemyBase", bound=declarative_base())
+ModelType = TypeVar("ModelType", bound=SQLAlchemyBase)
 
 
 class BaseRepository(Generic[ModelType]):

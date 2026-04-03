@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 
 # Импортируем настройки и базу
 from src.core.config import settings
-from src.db.session import Base
+from src.db.postgres.session import PostgresBase as Base
 
 # Конфигурация Alembic
 config = context.config

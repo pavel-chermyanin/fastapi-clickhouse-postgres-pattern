@@ -1,5 +1,6 @@
 import os
 
+from pydantic import computed_field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -40,9 +41,32 @@ class Settings(BaseSettings):
     API_V1_STR: str = "/api/v1"
 
     # База данных (PostgreSQL)
-    DATABASE_URL: str = "postgresql+psycopg://postgres:postgres@localhost:5432/postgres"
+    POSTGRES_USER: str = "postgres"
+    POSTGRES_PASSWORD: str = "postgres"
+    POSTGRES_HOST: str = "db"
+    POSTGRES_PORT: int = 5432
+    POSTGRES_DB: str = "postgres"
 
-    # ClickHouse
+    @computed_field
+    @property
+    def DATABASE_URL(self) -> str:
+        """Динамически формирует URL подключения к PostgreSQL."""
+        return f"postgresql+psycopg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+
+    # База данных (MariaDB - Внешняя)
+    MARIADB_USER: str = "root"
+    MARIADB_PASSWORD: str = "root"
+    MARIADB_HOST: str = "localhost"
+    MARIADB_PORT: int = 3306
+    MARIADB_DB: str = "mariadb"
+
+    @computed_field
+    @property
+    def MARIADB_URL(self) -> str:
+        """Динамически формирует URL подключения к MariaDB."""
+        return f"mysql+aiomysql://{self.MARIADB_USER}:{self.MARIADB_PASSWORD}@{self.MARIADB_HOST}:{self.MARIADB_PORT}/{self.MARIADB_DB}"
+
+    # ClickHouse (Внешняя)
     CLICKHOUSE_HOST: str = "localhost"
     CLICKHOUSE_PORT: int = 8123
     CLICKHOUSE_USER: str = "default"

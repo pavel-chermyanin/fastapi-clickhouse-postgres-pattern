@@ -2,7 +2,7 @@ from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Table
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
-from src.db.session import Base
+from src.db.postgres.session import PostgresBase as Base
 
 # Ассоциативная таблица для связи Many-to-Many между User и Report
 user_report_association = Table(

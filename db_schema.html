@@ -191,7 +191,8 @@
 
     <div class="controls">
         <button id="btn-arch" class="btn active" onclick="showArchitecture()">Архитектура</button>
-        <button id="btn-db" class="btn" onclick="showDatabase()">База Данных</button>
+        <button id="btn-postgres" class="btn" onclick="showPostgres()">PostgreSQL</button>
+        <button id="btn-mariadb" class="btn" onclick="showMariaDB()">MariaDB</button>
     </div>
 
     <div class="container">
@@ -245,37 +246,41 @@
         let panZoomInstance = null;
         const tooltip = document.getElementById('custom-tooltip');
         let currentMode = 'arch';
+        let currentDB = 'postgres'; // 'postgres' or 'mariadb'
 
         const archTooltips = {
             'User': '<strong>Пользователь</strong>Взаимодействует с системой через публичный API или защищенную панель управления.',
             'App': '<strong>FastAPI Backend</strong>Основное ядро системы. Реализует бизнес-логику и маршрутизацию.',
             'Admin': '<strong>SQLAdmin</strong>Административный интерфейс, встроенный прямо в FastAPI приложение.',
-            'Postgres': '<strong>PostgreSQL</strong>Отдельный контейнер (postgres_db). Основное реляционное хранилище.',
-            'ClickHouse': '<strong>ClickHouse</strong>Отдельный контейнер (clickhouse_db). Аналитическое хранилище данных.',
+            'Postgres': '<strong>PostgreSQL</strong>Контейнер (postgres_db). Основное реляционное хранилище приложения.',
+            'MariaDB': '<strong>MariaDB (Внешняя)</strong>Внешняя база данных. Хранилище данных с поддержкой чтения и записи.',
+            'ClickHouse': '<strong>ClickHouse (Внешняя)</strong>Внешняя аналитическая база данных.',
             'L-User-App': '<strong>REST API</strong>Стандарт взаимодействия внешних клиентов с бэкендом.',
             'L-User-Admin': '<strong>Dashboard</strong>Визуальный интерфейс для администраторов.',
             'L-App-Postgres': '<strong>Async ORM</strong>Высокопроизводительный доступ к данным через SQLAlchemy 2.0.',
-            'L-App-ClickHouse': '<strong>OLAP Access</strong>Интеграция с ClickHouse для аналитических вычислений.',
+            'L-App-MariaDB': '<strong>External Connection</strong>Доступ к внешней MariaDB для чтения и записи.',
+            'L-App-ClickHouse': '<strong>OLAP Access</strong>Интеграция с внешним ClickHouse для аналитики.',
             'L-Admin-Postgres': '<strong>Metadata Access</strong>Автоматическое построение форм на основе моделей БД.'
         };
 
         const architectureSchema = `graph TB
     User(("&nbsp;&nbsp;&nbsp;Пользователь&nbsp;&nbsp;&nbsp;"))
 
-    subgraph Container_App ["📦 Container: fastapi_app"]
+    subgraph Container_App ["📦 Docker Container: fastapi_app"]
         direction TB
         App["&nbsp;&nbsp;&nbsp;FastAPI Backend&nbsp;&nbsp;&nbsp;"]
         Admin["&nbsp;&nbsp;&nbsp;SQLAdmin Panel&nbsp;&nbsp;&nbsp;"]
         App <--> Admin
     end
 
-    subgraph Container_Postgres ["📦 Container: postgres_db"]
+    subgraph Container_Postgres ["📦 Docker Container: postgres_db"]
         direction TB
         Postgres[("&nbsp;&nbsp;&nbsp;PostgreSQL&nbsp;&nbsp;&nbsp;")]
     end
 
-    subgraph Container_ClickHouse ["📦 Container: clickhouse_db"]
-        direction TB
+    subgraph External_Infrastructure ["🌐 External Infrastructure"]
+        direction LR
+        MariaDB[("&nbsp;&nbsp;&nbsp;MariaDB&nbsp;&nbsp;&nbsp;")]
         ClickHouse[("&nbsp;&nbsp;&nbsp;ClickHouse&nbsp;&nbsp;&nbsp;")]
     end
 
@@ -284,6 +289,7 @@
     User ==>|"/admin"| Admin
 
     App -.->|"AsyncSession"| Postgres
+    App -.->|"External Connection"| MariaDB
     App -.->|"ClickHouse Connect"| ClickHouse
     Admin -.->|"SQLAlchemy"| Postgres
 
@@ -291,12 +297,13 @@
     style App fill:#6366f1,stroke:#4f46e5,stroke-width:2px,color:#fff,rx:12,ry:12
     style Admin fill:#10b981,stroke:#059669,stroke-width:2px,color:#fff,rx:12,ry:12
     style Postgres fill:#f59e0b,stroke:#d97706,stroke-width:2px,color:#fff,rx:12,ry:12
+    style MariaDB fill:#003545,stroke:#00758f,stroke-width:2px,color:#fff,rx:12,ry:12
     style ClickHouse fill:#c084fc,stroke:#a855f7,stroke-width:2px,color:#fff,rx:12,ry:12
 
     %% Стили для контейнеров (карточек)
     style Container_App fill:#1e293b,stroke:#475569,stroke-width:3px,rx:20,ry:20
     style Container_Postgres fill:#1e293b,stroke:#475569,stroke-width:3px,rx:20,ry:20
-    style Container_ClickHouse fill:#1e293b,stroke:#475569,stroke-width:3px,rx:20,ry:20`;
+    style External_Infrastructure fill:#0f172a,stroke:#334155,stroke-width:2px,stroke-dasharray: 5 5,rx:20,ry:20`;
 
         mermaid.initialize({
             startOnLoad: false,
@@ -360,6 +367,7 @@
                     else if (text.includes('Backend')) content = archTooltips['App'];
                     else if (text.includes('SQLAdmin')) content = archTooltips['Admin'];
                     else if (text.includes('PostgreSQL')) content = archTooltips['Postgres'];
+                    else if (text.includes('MariaDB')) content = archTooltips['MariaDB'];
                     else if (text.includes('ClickHouse')) content = archTooltips['ClickHouse'];
                     else if (text.includes('/api/v1')) content = archTooltips['L-User-App'];
                     else if (text.includes('/admin')) content = archTooltips['L-User-Admin'];
@@ -367,36 +375,28 @@
                     else if (text.includes('ClickHouse Connect')) content = archTooltips['L-App-ClickHouse'];
                     else if (text.includes('SQLAlchemy')) content = archTooltips['L-Admin-Postgres'];
                 }
-            } else if (currentMode === 'db' && dbData) {
+            } else if (currentMode === 'db' && dbData && dbData[currentDB]) {
+                const currentDBData = dbData[currentDB];
                 // 1. Ищем родительскую группу таблицы
                 const entityGroup = target.closest('g[id^="entity-"]');
                 if (entityGroup) {
-                    // Извлекаем имя таблицы (первая часть ID после entity-)
                     const entityId = entityGroup.id;
                     const tableName = entityId.split('-')[1].toUpperCase();
-
-                    // 2. Определяем, на что именно навели
                     const id = target.id || "";
 
-                    // Если навели на текст атрибута (поля)
                     if (id.includes('-attr-')) {
-                        // Извлекаем номер атрибута (например, attr-4)
                         const match = id.match(/attr-(\d+)/);
                         if (match) {
                             const attrNum = match[1];
-                            // Ищем элемент с именем этого атрибута в той же группе
                             const nameElement = entityGroup.querySelector(`[id$="attr-${attrNum}-name"]`);
                             if (nameElement) {
                                 const fieldName = nameElement.textContent.trim().toUpperCase();
-                                content = dbData.dbTooltips[`${tableName}-${fieldName}`];
+                                content = currentDBData.tooltips[`${tableName}-${fieldName}`];
                             }
                         }
                     }
-                    // Если навели на прямоугольник (фон поля или таблицы)
                     else if (target.tagName === 'rect') {
                         if (target.classList.contains('attributeBoxOdd') || target.classList.contains('attributeBoxEven')) {
-                            // Для прямоугольников атрибутов нужно найти ближайший текст, чтобы понять индекс
-                            // В Mermaid rect идет перед соответствующим text. Ищем следующий элемент.
                             let nextText = target.nextElementSibling;
                             while (nextText && nextText.tagName !== 'text') {
                                 nextText = nextText.nextElementSibling;
@@ -408,28 +408,24 @@
                                     const nameElement = entityGroup.querySelector(`[id$="attr-${attrNum}-name"]`);
                                     if (nameElement) {
                                         const fieldName = nameElement.textContent.trim().toUpperCase();
-                                        content = dbData.dbTooltips[`${tableName}-${fieldName}`];
+                                        content = currentDBData.tooltips[`${tableName}-${fieldName}`];
                                     }
                                 }
                             }
                         } else if (target.classList.contains('entityBox')) {
-                            // Это заголовок таблицы (если не попали в атрибуты)
-                            content = dbData.dbTooltips[tableName];
+                            content = currentDBData.tooltips[tableName];
                         }
                     }
-                    // Если навели на само название таблицы
                     else if (target.classList.contains('entityLabel') && !id.includes('-attr-')) {
-                        content = dbData.dbTooltips[tableName];
+                        content = currentDBData.tooltips[tableName];
                     }
                 }
 
-                // 3. Поиск тултипа для связей (edges)
                 const edgeNode = target.closest('g.edgePath, g.edgeLabel, text.relationshipLabel, .er.relationshipLabel');
                 if (edgeNode) {
-                    // Извлекаем текст и очищаем от кавычек, если они есть
                     const label = edgeNode.textContent.trim().replace(/^"(.*)"$/, '$1');
-                    if (dbData.edgeTooltips && dbData.edgeTooltips[label]) {
-                        content = dbData.edgeTooltips[label];
+                    if (currentDBData.edgeTooltips && currentDBData.edgeTooltips[label]) {
+                        content = currentDBData.edgeTooltips[label];
                     }
                 }
             }
@@ -488,15 +484,27 @@
 
         function showArchitecture() {
             document.getElementById('btn-arch').classList.add('active');
-            document.getElementById('btn-db').classList.remove('active');
+            document.getElementById('btn-postgres').classList.remove('active');
+            document.getElementById('btn-mariadb').classList.remove('active');
             renderDiagram(architectureSchema, 'arch');
         }
 
-        async function showDatabase() {
-            document.getElementById('btn-db').classList.add('active');
+        async function showPostgres() {
+            document.getElementById('btn-postgres').classList.add('active');
             document.getElementById('btn-arch').classList.remove('active');
+            document.getElementById('btn-mariadb').classList.remove('active');
+            currentDB = 'postgres';
             const data = await loadDBData();
-            if (data) renderDiagram(data.mermaidSchema, 'db');
+            if (data && data.postgres) renderDiagram(data.postgres.mermaidSchema, 'db');
+        }
+
+        async function showMariaDB() {
+            document.getElementById('btn-mariadb').classList.add('active');
+            document.getElementById('btn-arch').classList.remove('active');
+            document.getElementById('btn-postgres').classList.remove('active');
+            currentDB = 'mariadb';
+            const data = await loadDBData();
+            if (data && data.mariadb) renderDiagram(data.mariadb.mermaidSchema, 'db');
         }
 
         document.addEventListener('DOMContentLoaded', () => {

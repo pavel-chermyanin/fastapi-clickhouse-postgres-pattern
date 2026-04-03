@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
 from src.core.repository import BaseRepository
-from src.modules.users.models import User
+from src.modules.postgres.users.models import User
 
 
 class UserRepository(BaseRepository[User]):

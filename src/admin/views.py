@@ -1,6 +1,6 @@
 from sqladmin import ModelView
 
-from src.modules.users.models import User
+from src.modules.postgres.users.models import User
 
 
 class UserAdmin(ModelView, model=User):

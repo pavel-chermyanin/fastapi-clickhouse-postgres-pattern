@@ -15,25 +15,41 @@ def validate_env():
     """Проверяет и создает файлы переменных окружения (.env) при их отсутствии"""
     print_step("Настройка конфигурационных файлов (.env)")
 
-    default_env_content = """# App Config
-PROJECT_NAME="FastAPI Universal Pattern"
-ENVIRONMENT=development
+    default_env_content = """# --- ОБЩИЕ НАСТРОЙКИ ---
+PROJECT_NAME="FastAPI ClickHouse Postgres Pattern"
+ENVIRONMENT="development"
 DEBUG=True
+VERSION="1.0.0"
+API_V1_STR="/api/v1"
 
-# Database (PostgreSQL)
-DATABASE_URL=postgresql+psycopg://postgres:postgres@db:5432/postgres
+# --- POSTGRESQL (Локальная база в Docker) ---
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=postgres
+POSTGRES_HOST=db
+POSTGRES_PORT=5432
+POSTGRES_DB=postgres
 
-# ClickHouse
-CLICKHOUSE_HOST=clickhouse
+# --- MARIADB (Внешняя база данных) ---
+MARIADB_USER=root
+MARIADB_PASSWORD=root
+MARIADB_HOST=localhost
+MARIADB_PORT=3306
+MARIADB_DB=mariadb
+
+# --- CLICKHOUSE (Внешняя база данных) ---
+CLICKHOUSE_HOST=localhost
 CLICKHOUSE_PORT=8123
 CLICKHOUSE_USER=default
 CLICKHOUSE_PASSWORD=password
 CLICKHOUSE_DATABASE=default
 
-# Admin
+# --- БЕЗОПАСНОСТЬ ---
+SECRET_KEY="yoursecretkeyhere"
+ACCESS_TOKEN_EXPIRE_MINUTES=11520 # 8 дней
+
+# --- АДМИНКА ---
 ADMIN_USER=admin
 ADMIN_PASSWORD=admin
-SECRET_KEY=yoursecretkeyhere
 """
 
     # 1. Создаем .env.development
