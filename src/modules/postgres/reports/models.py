@@ -45,8 +45,6 @@ class Report(Base):
     users = relationship("User", secondary=user_report_association, back_populates="reports")
 
     # Связь с фильтрами (один-ко-многим)
-    # Используем строковое имя класса и полный путь для избежания циклического импорта
+    # Используем строковое имя класса для избежания циклического импорта
     # @doc: У каждого отчета есть свои собственные фильтры, которые принадлежат только ему
-    filters = relationship(
-        "src.modules.filters.models.Filter", back_populates="report", cascade="all, delete-orphan"
-    )
+    filters = relationship("Filter", back_populates="report", cascade="all, delete-orphan")

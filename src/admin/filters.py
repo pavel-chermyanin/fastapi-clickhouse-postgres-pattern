@@ -1,6 +1,6 @@
 from sqladmin import ModelView
 
-from src.modules.filters.models import Filter
+from src.modules.postgres.filters.models import Filter
 
 
 class FilterAdmin(ModelView, model=Filter):

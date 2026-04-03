@@ -23,4 +23,4 @@ class Filter(Base):
     config = Column(JSON, nullable=False, comment="Конфигурация фильтра в формате JSON")
 
     # Обратная связь с отчетом
-    report = relationship("src.modules.reports.models.Report", back_populates="filters")
+    report = relationship("Report", back_populates="filters")

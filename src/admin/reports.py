@@ -1,6 +1,6 @@
 from sqladmin import ModelView
 
-from src.modules.reports.models import Report
+from src.modules.postgres.reports.models import Report
 
 
 class ReportAdmin(ModelView, model=Report):

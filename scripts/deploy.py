@@ -110,7 +110,6 @@ def run_docker():
     print("  🚀 FastAPI App:     http://localhost:8000")
     print("  📝 Swagger UI:      http://localhost:8000/docs")
     print("  🛠️ SQLAdmin:       http://localhost:8000/admin")
-    print("  📊 ClickHouse UI:   http://localhost:8123/play")
     print("  🗺️ System Map:      http://localhost:8080/db_schema.html")
     print("-" * 50)
     print("\nДождитесь полной готовности сервисов (проверить: docker logs -f fastapi_app)")

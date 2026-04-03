@@ -20,4 +20,4 @@ python scripts/serve_schema.py &
 # --port 8000 указывает порт для прослушивания
 # --reload и --reload-dir src включают автоматическую перезагрузку сервера при изменении кода
 echo "--- Starting FastAPI application ---"
-exec uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir src --reload-dir src
+exec uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir src
