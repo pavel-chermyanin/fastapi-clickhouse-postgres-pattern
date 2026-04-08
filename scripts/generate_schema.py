@@ -39,8 +39,11 @@ def get_doc_comments_from_file(file_path):
     return comments
 
 
-def generate_mermaid_for_metadata(metadata, prefix=""):
-    """Генерирует Mermaid-код и тултипы для переданного объекта MetaData."""
+def generate_mermaid_for_metadata(metadata, tab_filter=None):
+    """
+    Генерирует Mermaid-код и тултипы для переданного объекта MetaData.
+    Если tab_filter указан, берет только таблицы с соответствующим info['schema_tab'].
+    """
     mermaid_lines = []
     tooltips = {}
     edge_tooltips = {}
@@ -49,8 +52,33 @@ def generate_mermaid_for_metadata(metadata, prefix=""):
     assoc_tables = {}
     regular_tables = {}
 
-    # Разделяем таблицы на обычные и ассоциативные
-    for table_name, table in tables.items():
+    # Фильтруем таблицы по метаданным schema_tab, если фильтр задан
+    filtered_tables = {}
+    for name, table in tables.items():
+        tab_info = table.info.get("schema_tab")
+
+        if tab_filter:
+            if tab_info == tab_filter:
+                filtered_tables[name] = table
+                continue
+
+            # Ассоциативные таблицы могут не иметь info, проверяем связи
+            is_assoc = (
+                all(c.primary_key or c.foreign_keys for c in table.columns)
+                and len(table.columns) >= 2
+            )
+            if is_assoc:
+                target_tabs = [fk.column.table.info.get("schema_tab") for fk in table.foreign_keys]
+                if tab_filter in target_tabs:
+                    filtered_tables[name] = table
+                    continue
+
+            continue
+
+        filtered_tables[name] = table
+
+    # Разделяем отфильтрованные таблицы на обычные и ассоциативные
+    for table_name, table in filtered_tables.items():
         is_assoc = (
             all(c.primary_key or c.foreign_keys for c in table.columns) and len(table.columns) >= 2
         )
@@ -115,12 +143,24 @@ def export_metadata_to_mermaid():
     # 2. Регистрация моделей MariaDB
     discover_and_register_mariadb_models()
 
+    # СИСТЕМНЫЙ ХАК: SQLAlchemy может не загрузить модели в MetaData,
+    # если они не были явно использованы. Мы импортируем их напрямую.
+    try:
+        from src.modules.reports import Filter, Report  # noqa: F401
+        from src.modules.users import User  # noqa: F401
+    except ImportError as e:
+        print(f"Предупреждение: Не удалось импортировать некоторые модели: {e}")
+
     # Генерируем схему для Postgres
-    pg_mermaid, pg_tooltips, pg_edges = generate_mermaid_for_metadata(PostgresBase.metadata)
+    pg_mermaid, pg_tooltips, pg_edges = generate_mermaid_for_metadata(
+        PostgresBase.metadata, tab_filter="postgres"
+    )
     pg_schema = "erDiagram\n" + pg_mermaid
 
     # Генерируем схему для MariaDB
-    ma_mermaid, ma_tooltips, ma_edges = generate_mermaid_for_metadata(MariaDBBase.metadata)
+    ma_mermaid, ma_tooltips, ma_edges = generate_mermaid_for_metadata(
+        MariaDBBase.metadata, tab_filter="mariadb"
+    )
     ma_schema = "erDiagram\n" + ma_mermaid
 
     data = {

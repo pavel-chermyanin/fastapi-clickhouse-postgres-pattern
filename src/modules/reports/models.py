@@ -1,4 +1,4 @@
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Table
+from sqlalchemy import JSON, Column, DateTime, ForeignKey, Integer, String, Table
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -23,6 +23,7 @@ user_report_association = Table(
         comment="ID отчета",
     ),
     comment="Связь пользователей с отчетами",
+    info={"schema_tab": "postgres"},
 )
 
 
@@ -32,7 +33,10 @@ class Report(Base):
     """
 
     __tablename__ = "reports"
-    __table_args__ = {"comment": "Таблица отчетов системы"}
+    __table_args__ = {
+        "comment": "Таблица отчетов системы",
+        "info": {"schema_tab": "postgres"},
+    }
 
     id = Column(Integer, primary_key=True, index=True, comment="Уникальный идентификатор отчета")
     title = Column(String, nullable=False, comment="Название или заголовок отчета")
@@ -45,6 +49,29 @@ class Report(Base):
     users = relationship("User", secondary=user_report_association, back_populates="reports")
 
     # Связь с фильтрами (один-ко-многим)
-    # Используем строковое имя класса для избежания циклического импорта
-    # @doc: У каждого отчета есть свои собственные фильтры, которые принадлежат только ему
     filters = relationship("Filter", back_populates="report", cascade="all, delete-orphan")
+
+
+class Filter(Base):
+    """
+    Модель фильтра для отчета. Один отчет может иметь несколько фильтров.
+    """
+
+    __tablename__ = "filters"
+    __table_args__ = {
+        "comment": "Таблица фильтров для отчетов",
+        "info": {"schema_tab": "postgres"},
+    }
+
+    id = Column(Integer, primary_key=True, index=True, comment="Уникальный идентификатор фильтра")
+    report_id = Column(
+        Integer,
+        ForeignKey("reports.id", ondelete="CASCADE"),
+        nullable=False,
+        comment="ID отчета, к которому относится фильтр",
+    )
+    name = Column(String, nullable=False, comment="Название фильтра (например, 'Период', 'Регион')")
+    config = Column(JSON, nullable=False, comment="Конфигурация фильтра в формате JSON")
+
+    # Обратная связь с отчетом
+    report = relationship("Report", back_populates="filters")

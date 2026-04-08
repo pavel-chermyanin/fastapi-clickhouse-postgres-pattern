@@ -4,8 +4,8 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.db.postgres.session import get_postgres_db
-from src.modules.postgres.users.schemas import User, UserCreate
-from src.modules.postgres.users.service import user_service
+from src.modules.users.schemas import User, UserCreate
+from src.modules.users.service import user_service
 
 # Роутер для управления пользователями
 router = APIRouter()

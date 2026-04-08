@@ -24,8 +24,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     # Очищаем кэш apt-get для уменьшения финального размера Docker-образа
     && rm -rf /var/lib/apt/lists/*
 
-# Устанавливаем uv - сверхбыстрый менеджер пакетов для Python
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+# Устанавливаем uv - сверхбыстрый менеджер пакетов для Python (через pip из зеркала, т.к. доступ к ghcr.io может быть ограничен)
+RUN pip install uv --index-url https://pypi.tuna.tsinghua.edu.cn/simple
 
 # Копируем файл конфигурации зависимостей
 COPY pyproject.toml /app/
@@ -33,8 +33,10 @@ COPY pyproject.toml /app/
 # Копируем весь остальной код приложения в рабочую директорию контейнера
 COPY . /app/
 
-# Устанавливаем все зависимости и сам проект в системное окружение
-RUN uv pip install --system -e .
+# Устанавливаем все зависимости и сам проект в системное окружение с использованием зеркала (на случай проблем с доступом к pypi.org)
+# Также увеличиваем таймаут для медленных соединений
+ENV UV_HTTP_TIMEOUT=300
+RUN uv pip install --system --index-url https://pypi.tuna.tsinghua.edu.cn/simple -e .
 
 # Копируем скрипт входа (entrypoint), который будет выполняться при запуске контейнера
 COPY docker-entrypoint.sh /app/docker-entrypoint.sh

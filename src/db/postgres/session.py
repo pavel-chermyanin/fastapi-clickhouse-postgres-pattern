@@ -28,15 +28,22 @@ PostgresBase = declarative_base()
 
 def discover_and_register_postgres_models():
     """
-    Рекурсивно находит и импортирует все файлы models.py в src/modules/postgres,
-    чтобы SQLAlchemy мог обнаружить все таблицы.
+    Рекурсивно находит и импортирует все файлы models.py в src/modules,
+    которые могут содержать модели для PostgreSQL.
     """
-    modules_path = Path(__file__).parent.parent.parent / "modules" / "postgres"
+    modules_path = Path(__file__).parent.parent.parent / "modules"
     if not modules_path.exists():
         return
 
+    # Список папок, которые НЕ относятся к Postgres
+    exclude_dirs = {"products", "analytics"}
+
     for item in modules_path.rglob("models.py"):
-        # Превращаем путь в формат импорта python: src.modules.postgres...
+        # Проверяем, не находится ли файл в исключаемой директории
+        if any(ex in str(item) for ex in exclude_dirs):
+            continue
+
+        # Превращаем путь в формат импорта python: src.modules...
         relative_path = item.relative_to(modules_path.parent.parent.parent)
         module_name = str(relative_path).replace("\\", ".").replace("/", ".").replace(".py", "")
         try:

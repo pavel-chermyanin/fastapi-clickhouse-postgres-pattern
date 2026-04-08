@@ -12,7 +12,10 @@ class User(Base):
     """
 
     __tablename__ = "users"
-    __table_args__ = {"comment": "Таблица пользователей системы"}
+    __table_args__ = {
+        "comment": "Таблица пользователей системы",
+        "info": {"schema_tab": "postgres"},
+    }
 
     id = Column(Integer, primary_key=True, index=True, comment="Уникальный идентификатор")
     email = Column(String, unique=True, index=True, nullable=False, comment="Email пользователя")

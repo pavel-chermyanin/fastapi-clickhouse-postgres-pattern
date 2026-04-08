@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Processing Flow Visualization</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.1/dist/svg-pan-zoom.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #6366f1;
+            --bg: #0f172a;
+            --card-bg: #1e293b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border: #334155;
+            --tooltip-bg: rgba(30, 41, 59, 0.98);
+        }
+
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg);
+            margin: 0;
+            padding: 20px;
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        header { margin-bottom: 30px; text-align: center; }
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #818cf8 0%, #c084fc 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin: 0;
+        }
+
+        .container {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 24px;
+            border: 1px solid var(--border);
+            width: 100%;
+            max-width: 1400px;
+            min-height: 800px;
+            position: relative;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            overflow: hidden;
+            cursor: grab;
+        }
+
+        .container:active { cursor: grabbing; }
+
+        #diagram {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            transition: opacity 0.5s;
+        }
+
+        #diagram.ready { opacity: 1; }
+
+        #custom-tooltip {
+            position: fixed;
+            display: none;
+            background: var(--tooltip-bg);
+            backdrop-filter: blur(8px);
+            color: white;
+            padding: 16px;
+            border-radius: 12px;
+            font-size: 0.95rem;
+            z-index: 10000;
+            max-width: 350px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.7);
+            pointer-events: none;
+            border: 1px solid rgba(255,255,255,0.1);
+            line-height: 1.5;
+        }
+
+        #custom-tooltip strong {
+            display: block;
+            margin-bottom: 8px;
+            color: #818cf8;
+            font-size: 1.1rem;
+            border-bottom: 1px solid rgba(129, 140, 248, 0.3);
+            padding-bottom: 4px;
+        }
+
+        g.node, .edgePath, .edgeLabel { cursor: help !important; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>File Processing Flow</h1>
+        <p style="color: var(--text-muted); margin-top: 8px;">Визуализация процесса обработки файлов между сервисами</p>
+    </header>
+
+    <div class="container">
+        <button id="reset-zoom" style="position:absolute; top:20px; right:20px; z-index:100; padding:8px 16px; border-radius:12px; background:var(--primary); color:white; border:none; cursor:pointer; font-weight:600; font-size:0.9rem; opacity:0.8; transition:opacity 0.3s;" onclick="if(panZoomInstance) panZoomInstance.reset();">Сбросить зум</button>
+        <div id="diagram" class="mermaid"></div>
+        <div id="custom-tooltip"></div>
+    </div>
+
+    <script>
+        const flowTooltips = {
+            'Client': '<strong>Клиент</strong>Отправляет файл и немедленно получает task_id для отслеживания статуса обработки.',
+            'MainBackend': '<strong>Main Backend (FastAPI)</strong>Координирует процесс: принимает файлы, создает задачи в БД, передает их в LLM сервис и возвращает результат клиенту.',
+            'PostgresMain': '<strong>PostgreSQL (Main)</strong>Хранит метаданные задач, их текущие статусы (Pending, Processing, Done) и ссылки на результаты.',
+            'LLMBackend': '<strong>LLM Backend (FastAPI)</strong>Тяжелый сервис для раскодировки и обработки. Работает потоково с файлами для экономии оперативной памяти.',
+            'PostgresPanel': '<strong>Clickhouse (Panel)</strong>База данных панели управления LLM для хранения специфических данных обработки.',
+            'Redis': '<strong>Redis Broker</strong>Обеспечивает асинхронную передачу событий о прогрессе между сервисами в реальном времени.',
+
+            'L1-Upload': '<strong>1. POST /upload</strong>Клиент загружает файл. Сервис сразу возвращает task_id, не дожидаясь конца обработки.',
+            'L2-Task': '<strong>2. Создание задачи</strong>Main Backend сохраняет информацию о новой задаче в Postgres для контроля состояния.',
+            'L3-Stream': '<strong>3. Streaming POST</strong>Файл передается в LLM сервис чанками (например, по 1МБ). Это позволяет обрабатывать файлы любого размера.',
+            'L4-Notify': '<strong>4. Прогресс (Publish)</strong>LLM сервис публикует события в Redis (Начало, % выполнения, Ошибка) по мере обработки.',
+            'L5-Sub': '<strong>5. Обновление (Subscribe)</strong>Main Backend слушает Redis и обновляет статус задачи в своей БД для информирования клиента.',
+            'L6-Result': '<strong>6. Возврат результата</strong>По завершении LLM сервис отдает готовые данные обратно в Main Backend через HTTP или общее хранилище.',
+            'L7-Poll': '<strong>7. Получение данных</strong>Клиент забирает готовый результат по task_id (Polling) или через Webhook уведомление.'
+        };
+
+        const flowSchema = `graph TB
+    Client(("&nbsp;&nbsp;&nbsp;Пользователь / Клиент&nbsp;&nbsp;&nbsp;"))
+    MainBackend["&nbsp;&nbsp;&nbsp;FastAPI: Main Backend&nbsp;&nbsp;&nbsp;"]
+    PostgresMain[("&nbsp;&nbsp;&nbsp;PostgreSQL (Main DB)&nbsp;&nbsp;&nbsp;")]
+    Redis{{"&nbsp;&nbsp;&nbsp;Redis Broker (Pub/Sub)&nbsp;&nbsp;&nbsp;"}}
+    LLMBackend["&nbsp;&nbsp;&nbsp;FastAPI: LLM Service&nbsp;&nbsp;&nbsp;"]
+    PostgresPanel[("&nbsp;&nbsp;&nbsp;Clickhouse (Panel DB)&nbsp;&nbsp;&nbsp;")]
+
+    Client ==>| L1-Upload | MainBackend
+    MainBackend -.->| L2-Task | PostgresMain
+    MainBackend ==>| L3-Stream | LLMBackend
+    LLMBackend -.->| L4-Notify | Redis
+    Redis -.->| L5-Sub | MainBackend
+    LLMBackend ==>| L6-Result | MainBackend
+    MainBackend ==>| L7-Poll | Client
+    LLMBackend --- PostgresPanel
+
+    style Client fill:#0f172a,stroke:#818cf8,stroke-width:2px,color:#f8fafc
+    style MainBackend fill:#6366f1,stroke:#4f46e5,stroke-width:2px,color:#fff,rx:12,ry:12
+    style LLMBackend fill:#c084fc,stroke:#a855f7,stroke-width:2px,color:#fff,rx:12,ry:12
+    style Redis fill:#ef4444,stroke:#dc2626,stroke-width:2px,color:#fff,rx:12,ry:12
+    style PostgresMain fill:#f59e0b,stroke:#d97706,stroke-width:2px,color:#fff,rx:12,ry:12
+    style PostgresPanel fill:#10b981,stroke:#059669,stroke-width:2px,color:#fff,rx:12,ry:12`;
+
+        mermaid.initialize({
+            startOnLoad: false,
+            theme: 'dark',
+            securityLevel: 'loose',
+            fontFamily: 'Inter, sans-serif',
+            flowchart: {
+                htmlLabels: true,
+                curve: 'basis',
+                nodeSpacing: 100,
+                rankSpacing: 120,
+                padding: 40
+            }
+        });
+
+        const diagramDiv = document.getElementById('diagram');
+        const tooltip = document.getElementById('custom-tooltip');
+        let panZoomInstance = null;
+
+        function showTooltip(e, content) {
+            if (!content) return;
+            tooltip.innerHTML = content;
+            tooltip.style.display = 'block';
+            updateTooltipPosition(e);
+        }
+
+        function updateTooltipPosition(e) {
+            let x = e.clientX + 20;
+            let y = e.clientY + 20;
+            if (x + 350 > window.innerWidth) x = e.clientX - 370;
+            if (y + 200 > window.innerHeight) y = e.clientY - 220;
+            tooltip.style.left = x + 'px';
+            tooltip.style.top = y + 'px';
+        }
+
+        function handleMouseMove(e) {
+            const target = e.target;
+            let content = null;
+            const node = target.closest('g.node, g.edgePath, g.edgeLabel');
+
+            if (node) {
+                const text = node.textContent.trim();
+                if (text.includes('Клиент')) content = flowTooltips['Client'];
+                else if (text.includes('Main Backend')) content = flowTooltips['MainBackend'];
+                else if (text.includes('LLM Service')) content = flowTooltips['LLMBackend'];
+                else if (text.includes('Redis')) content = flowTooltips['Redis'];
+                else if (text.includes('Main DB')) content = flowTooltips['PostgresMain'];
+                else if (text.includes('Panel DB')) content = flowTooltips['PostgresPanel'];
+                else if (text.includes('L1-Upload')) content = flowTooltips['L1-Upload'];
+                else if (text.includes('L2-Task')) content = flowTooltips['L2-Task'];
+                else if (text.includes('L3-Stream')) content = flowTooltips['L3-Stream'];
+                else if (text.includes('L4-Notify')) content = flowTooltips['L4-Notify'];
+                else if (text.includes('L5-Sub')) content = flowTooltips['L5-Sub'];
+                else if (text.includes('L6-Result')) content = flowTooltips['L6-Result'];
+                else if (text.includes('L7-Poll')) content = flowTooltips['L7-Poll'];
+            }
+
+            if (content) {
+                showTooltip(e, content);
+            } else {
+                tooltip.style.display = 'none';
+            }
+        }
+
+        async function init() {
+            const { svg } = await mermaid.render('mermaid-svg', flowSchema);
+            diagramDiv.innerHTML = svg;
+            diagramDiv.classList.add('ready');
+
+            const svgElement = diagramDiv.querySelector('svg');
+            svgElement.style.width = '100%';
+            svgElement.style.height = '800px';
+
+            panZoomInstance = svgPanZoom(svgElement, {
+                zoomEnabled: true,
+                controlIconsEnabled: true,
+                fit: true,
+                center: true
+            });
+
+            window.addEventListener('mousemove', handleMouseMove);
+        }
+
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>

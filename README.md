@@ -46,14 +46,17 @@ docker compose down
 
 ## 🏗️ Архитектура
 
-Проект построен на **Модульной (Feature-based) архитектуре** с разделением по типам хранилищ.
+Проект построен на **Domain-Driven Design (DDD)** — разделении по бизнес-логике (доменам), а не по технологиям.
 
 ```text
 src/
 ├── modules/
-│   ├── postgres/           # Модули, работающие с локальной БД (Users, Reports)
-│   ├── mariadb/            # Модули для работы с внешними данными (Products)
-│   └── clickhouse/         # Модули аналитики (Analytics)
+│   ├── auth/               # Аутентификация и авторизация (Login)
+│   ├── users/              # Управление пользователями и профилями (Postgres)
+│   ├── reports/            # Отчеты и связанные фильтры (Postgres)
+│   ├── dashboard/
+│   │   └── sheets/         # Сервис для работы с таблицами и данными
+│   └── storage/            # Хранилище файлов и изображений (S3/Local)
 ├── core/                   # Общие настройки (Pydantic Settings)
 ├── db/                     # Клиенты и сессии для каждой БД
 └── api/v1/                 # Единая точка сборки роутеров
@@ -63,8 +66,8 @@ src/
 
 ## 🐳 Работа с Docker
 
-В Docker-окружении (`docker-compose.yml`) теперь только два сервиса:
-1.  **app**: FastAPI приложение.
+В Docker-окружении (`docker-compose.yml`) развернуты:
+1.  **app**: FastAPI приложение (доступно по порту **8001**).
 2.  **db**: PostgreSQL (основное хранилище приложения).
 
 Внешние базы (ClickHouse/MariaDB) должны быть доступны по сети для контейнера `app`.
@@ -73,7 +76,7 @@ src/
 
 ## 🛠️ Команды управления
 
-Рекомендуется использовать `uv` для локальной разработки, если он установлен. Если нет — используйте стандартный `python`.
+Рекомендуется использовать `uv` для локальной разработки. Внутри Docker `uv` используется автоматически для сверхбыстрой установки зависимостей.
 
 ### Визуализация (System Map)
 В проекте реализована продвинутая визуализация с тремя режимами просмотра:
@@ -85,7 +88,7 @@ src/
 # Генерация данных для схемы (после изменения моделей)
 python scripts/generate_schema.py
 
-# Запуск сервера просмотра
+# Запуск сервера просмотра (доступен на порту 8081 в Docker)
 python scripts/serve_schema.py
 ```
 
@@ -95,10 +98,11 @@ python scripts/serve_schema.py
 
 | Сервис | URL | Описание |
 | :--- | :--- | :--- |
-| **API Backend** | [http://localhost:8000](http://localhost:8000) | Основной адрес API сервера |
-| **Swagger UI** | [http://localhost:8000/docs](http://localhost:8000/docs) | Документация для фронтенда |
-| **Admin Panel** | [http://localhost:8000/admin](http://localhost:8000/admin) | Управление PostgreSQL через SQLAdmin |
-| **System Map** | [http://localhost:8080/db_schema.html](http://localhost:8080/db_schema.html) | Интерактивная карта архитектуры |
+| **API Backend** | [http://localhost:8001](http://localhost:8001) | Основной адрес API сервера |
+| **Swagger UI** | [http://localhost:8001/docs](http://localhost:8001/docs) | Документация для фронтенда |
+| **Admin Panel** | [http://localhost:8001/admin](http://localhost:8001/admin) | Управление PostgreSQL через SQLAdmin |
+| **System Map** | [http://localhost:8081/db_schema.html](http://localhost:8081/db_schema.html) | Интерактивная карта архитектуры БД |
+| **Process Flow** | [http://localhost:8081/processing_flow.html](http://localhost:8081/processing_flow.html) | Схема процесса обработки файлов |
 
 
 ---
@@ -142,13 +146,14 @@ reformatted scripts\generate_schema.py
 2. `git commit -m "ваш комментарий"`
 
 ### Ручной запуск
-Вы можете запустить все проверки вручную для всех файлов проекта:
-```bash
-# Для Windows
-.\venv\Scripts\python.exe -m pre_commit run --all-files
+Вы можете запустить все проверки вручную для всех файлов проекта через стандартный Python или `uv`:
 
-# Для Linux/macOS
-./venv/bin/python -m pre_commit run --all-files
+```bash
+# Через стандартный Python (рекомендуется)
+python -m pre_commit run --all-files
+
+# Через uv (если установлен)
+uv run pre_commit run --all-files
 ```
 
 ---

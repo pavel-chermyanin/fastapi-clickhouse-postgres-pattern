@@ -3,9 +3,9 @@ from typing import List, Optional
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.modules.postgres.users.models import User
-from src.modules.postgres.users.repository import user_repository
-from src.modules.postgres.users.schemas import UserCreate
+from src.modules.users.models import User
+from src.modules.users.repository import user_repository
+from src.modules.users.schemas import UserCreate
 
 
 class UserService:

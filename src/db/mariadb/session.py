@@ -24,15 +24,22 @@ MariaDBBase = declarative_base()
 
 def discover_and_register_mariadb_models():
     """
-    Рекурсивно находит и импортирует все файлы models.py в src/modules/mariadb,
-    чтобы SQLAlchemy мог обнаружить все таблицы для MariaDB.
+    Рекурсивно находит и импортирует все файлы models.py в src/modules,
+    которые относятся к MariaDB.
     """
-    modules_path = Path(__file__).parent.parent.parent / "modules" / "mariadb"
+    modules_path = Path(__file__).parent.parent.parent / "modules"
     if not modules_path.exists():
         return
 
+    # Список папок, которые относятся К MariaDB
+    include_dirs = {"products"}
+
     for item in modules_path.rglob("models.py"):
-        # Превращаем путь в формат импорта python: src.modules.mariadb...
+        # Проверяем, находится ли файл в одной из включаемых директорий
+        if not any(inc in str(item) for inc in include_dirs):
+            continue
+
+        # Превращаем путь в формат импорта python: src.modules...
         relative_path = item.relative_to(modules_path.parent.parent.parent)
         module_name = str(relative_path).replace("\\", ".").replace("/", ".").replace(".py", "")
         try:
